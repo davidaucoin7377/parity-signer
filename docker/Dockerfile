@@ -1,5 +1,5 @@
 # This dockerfile is based on Bitrise but with a lot of extra cruft we don't need removed
-FROM ubuntu:focal
+FROM ubuntu:20.04
 LABEL maintainer="Parity Technologies <devops-team@parity.io>"
 
 ENV ANDROID_SDK_ROOT /opt/android-sdk-linux
