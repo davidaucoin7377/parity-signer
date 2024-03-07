@@ -59,9 +59,11 @@ grayscale
 html
 iOS
 identicon/S
+jdenticon/S
 init
 invariants
 io
+jcenter
 js
 json/S
 jvm

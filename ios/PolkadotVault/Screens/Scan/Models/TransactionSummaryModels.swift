@@ -1,5 +1,5 @@
 //
-//  MTransaction+Summary.swift
+//  TransactionSummaryModels.swift
 //  Polkadot Vault
 //
 //  Created by Krzysztof Rodak on 20/11/2022.
@@ -10,10 +10,10 @@ import SwiftUI
 
 extension TransactionPreviewRenderable {
     init(_ transaction: MTransaction) {
-        var pallet: String = ""
-        var method: String = ""
-        var destination: String = ""
-        var value: String = ""
+        var pallet = ""
+        var method = ""
+        var destination = ""
+        var value = ""
         let methodCards = transaction.content.method?.map(\.card) ?? []
 
         for methodCard in methodCards {
@@ -101,7 +101,7 @@ struct TransactionSignatureRenderable: Equatable {
     let name: String
     let network: String?
     let base58: String
-    let identicon: SignerImage
+    let identicon: Identicon
     let hasPassword: Bool
 
     init(
@@ -109,7 +109,7 @@ struct TransactionSignatureRenderable: Equatable {
         name: String = "",
         network: String? = nil,
         base58: String = "",
-        identicon: SignerImage = .svg(image: []),
+        identicon: Identicon,
         hasPassword: Bool = false
     ) {
         self.path = path

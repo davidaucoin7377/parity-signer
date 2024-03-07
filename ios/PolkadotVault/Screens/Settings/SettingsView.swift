@@ -9,58 +9,45 @@ import SwiftUI
 
 struct SettingsView: View {
     @StateObject var viewModel: ViewModel
-    @EnvironmentObject private var appState: AppState
+    @Environment(\.presentationMode) var presentationMode
 
     var body: some View {
-        NavigationView {
-            ZStack(alignment: .bottom) {
-                VStack(spacing: 0) {
-                    NavigationBarView(
-                        viewModel: NavigationBarViewModel(
-                            title: .title(Localizable.Settings.Label.title.string),
-                            leftButtons: [.init(type: .empty)],
-                            rightButtons: [.init(type: .empty)],
-                            backgroundColor: Asset.backgroundPrimary.swiftUIColor
-                        )
+        ZStack(alignment: .bottom) {
+            VStack(spacing: 0) {
+                NavigationBarView(
+                    viewModel: NavigationBarViewModel(
+                        title: .title(Localizable.Settings.Label.title.string),
+                        leftButtons: [.init(type: .xmark, action: { presentationMode.wrappedValue.dismiss() })],
+                        rightButtons: [.init(type: .empty)],
+                        backgroundColor: .backgroundPrimary
                     )
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 0) {
-                            ForEach(viewModel.renderable.items, id: \.id) { renderable in
-
-                                SettingsRowView(renderable: renderable)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture {
-                                        viewModel.onTapAction(renderable.item)
-                                    }
-                            }
-                            Text(Localizable.Settings.Label.version(ApplicationInformation.cfBundleShortVersionString))
-                                .font(PrimaryFont.captionM.font)
-                                .foregroundColor(Asset.textAndIconsTertiary.swiftUIColor)
-                                .padding(.top, Spacing.medium)
-                                .padding(.horizontal, Spacing.large)
-                                .padding(.bottom, Spacing.extraSmall)
+                )
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(viewModel.renderable.items, id: \.self) { renderable in
+                            SettingsRowView(renderable: renderable)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    viewModel.onTapAction(renderable.item)
+                                }
                         }
+                        Text(Localizable.Settings.Label.version(ApplicationInformation.cfBundleShortVersionString))
+                            .font(PrimaryFont.captionM.font)
+                            .foregroundColor(.textAndIconsTertiary)
+                            .padding(.top, Spacing.medium)
+                            .padding(.horizontal, Spacing.large)
+                            .padding(.bottom, Spacing.extraSmall)
                     }
                 }
-                .background(Asset.backgroundPrimary.swiftUIColor)
-                .navigationViewStyle(StackNavigationViewStyle())
-                .navigationBarHidden(true)
-                VStack(spacing: 0) {
-                    ConnectivityAlertOverlay(viewModel: .init())
-                    TabBarView(
-                        viewModel: viewModel.tabBarViewModel
-                    )
-                }
-                NavigationLink(
-                    destination: detailView(viewModel.detailScreen)
-                        .navigationBarHidden(true),
-                    isActive: $viewModel.isDetailsPresented
-                ) { EmptyView() }
             }
-            .background(Asset.backgroundPrimary.swiftUIColor)
+            .background(.backgroundPrimary)
+            NavigationLink(
+                destination: detailView(viewModel.detailScreen)
+                    .navigationBarHidden(true),
+                isActive: $viewModel.isDetailsPresented
+            ) { EmptyView() }
         }
         .onAppear {
-            viewModel.use(appState: appState)
             viewModel.loadData()
         }
         .fullScreenModal(isPresented: $viewModel.isPresentingWipeConfirmation) {
@@ -71,7 +58,6 @@ struct SettingsView: View {
             )
             .clearModalBackground()
         }
-        .environment(\.rootPresentationMode, $viewModel.isDetailsPresented)
     }
 
     @ViewBuilder
@@ -83,8 +69,6 @@ struct SettingsView: View {
             NetworkSelectionSettings(viewModel: .init())
         case .verifier:
             VerifierCertificateView(viewModel: .init())
-        case .backup:
-            BackupSelectKeyView(viewModel: .init())
         case .privacyPolicy:
             PrivacyPolicyView(viewModel: .init())
         case .termsAndConditions:
@@ -104,35 +88,16 @@ extension SettingsView {
         @Published var isPresentingWipeConfirmation = false
         @Published var isDetailsPresented = false
         @Published var detailScreen: SettingsItem?
-        private weak var appState: AppState!
-        private let onboardingMediator: OnboardingMediator
-        private let settingsService: SettingsTabService
-        let tabBarViewModel: TabBarView.ViewModel
+        private let onboardingMediator: OnboardingMediating
 
         init(
-            onboardingMediator: OnboardingMediator = ServiceLocator.onboardingMediator,
-            settingsService: SettingsTabService = SettingsTabService(),
-            tabBarViewModel: TabBarView.ViewModel
+            onboardingMediator: OnboardingMediating = ServiceLocator.onboardingMediator
         ) {
             self.onboardingMediator = onboardingMediator
-            self.settingsService = settingsService
-            self.tabBarViewModel = tabBarViewModel
-            listenToUpdates()
-        }
-
-        func use(appState: AppState) {
-            self.appState = appState
         }
 
         func loadData() {
             renderable = SettingsViewRenderable()
-        }
-
-        private func listenToUpdates() {
-            $isDetailsPresented.sink { [weak self] isPresented in
-                guard let self = self, !isPresented else { return }
-                self.settingsService.onSettingsTabDisplay()
-            }.store(in: cancelBag)
         }
 
         func onTapAction(_ item: SettingsItem) {
@@ -148,9 +113,6 @@ extension SettingsView {
             case .privacyPolicy:
                 detailScreen = .privacyPolicy
                 isDetailsPresented = true
-            case .backup:
-                detailScreen = .backup
-                isDetailsPresented = true
             case .networks:
                 detailScreen = .networks
                 isDetailsPresented = true
@@ -165,7 +127,7 @@ extension SettingsView {
         }
 
         func wipe() {
-            onboardingMediator.onboard()
+            onboardingMediator.onboard(verifierRemoved: false)
             isPresentingWipeConfirmation = false
         }
     }
@@ -183,7 +145,7 @@ struct SettingsViewRenderable: Equatable {
 #if DEBUG
     struct SettingsView_Previews: PreviewProvider {
         static var previews: some View {
-            SettingsView(viewModel: .init(tabBarViewModel: .mock))
+            SettingsView(viewModel: .init())
         }
     }
 #endif

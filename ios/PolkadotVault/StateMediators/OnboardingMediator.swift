@@ -5,41 +5,45 @@
 //  Created by Krzysztof Rodak on 13/03/2023.
 //
 
+import Combine
 import Foundation
 import SwiftUI
 
-final class OnboardingMediator: ObservableObject {
-    private let navigationInitialisationService: NavigationInitialisationService
+// sourcery: AutoMockable
+protocol OnboardingMediating: AnyObject {
+    var onboardingDone: AnyPublisher<Bool, Never> { get }
+
+    func onboard(verifierRemoved: Bool)
+}
+
+final class OnboardingMediator: OnboardingMediating {
+    private let navigationInitialisationService: NavigationInitialisationServicing
     private let seedsMediator: SeedsMediating
     private let databaseMediator: DatabaseMediating
-    private let warningStateMediator: WarningStateMediator
-    private let initialisationService: AppInitialisationService
-    @Published var onboardingDone: Bool = false
+    private let onboardingDoneSubject = CurrentValueSubject<Bool, Never>(false)
+    var onboardingDone: AnyPublisher<Bool, Never> {
+        onboardingDoneSubject.eraseToAnyPublisher()
+    }
 
     init(
-        navigationInitialisationService: NavigationInitialisationService = NavigationInitialisationService(),
+        navigationInitialisationService: NavigationInitialisationServicing = NavigationInitialisationService(),
         seedsMediator: SeedsMediating = ServiceLocator.seedsMediator,
-        databaseMediator: DatabaseMediating = DatabaseMediator(),
-        warningStateMediator: WarningStateMediator = ServiceLocator.warningStateMediator,
-        initialisationService: AppInitialisationService = AppInitialisationService()
+        databaseMediator: DatabaseMediating = DatabaseMediator()
     ) {
         self.navigationInitialisationService = navigationInitialisationService
         self.seedsMediator = seedsMediator
         self.databaseMediator = databaseMediator
-        self.warningStateMediator = warningStateMediator
-        self.initialisationService = initialisationService
-        onboardingDone = databaseMediator.isDatabaseAvailable()
+        // Set initial state based on database availability
+        onboardingDoneSubject.send(databaseMediator.isDatabaseAvailable())
     }
 
-    func onboard(verifierRemoved: Bool = false) {
+    func onboard(verifierRemoved: Bool) {
         guard seedsMediator.removeAllSeeds() else { return }
         databaseMediator.recreateDatabaseFile()
-        navigationInitialisationService.initialiseNavigation(verifierRemoved: verifierRemoved) { [weak self] in
-            guard let self = self else { return }
-            self.seedsMediator.refreshSeeds()
-            self.onboardingDone = true
-            self.warningStateMediator.updateWarnings()
-            self.initialisationService.initialiseAppSession()
+        navigationInitialisationService.initialiseNavigation(verifierRemoved: verifierRemoved) { [weak self] _ in
+            guard let self else { return }
+            seedsMediator.refreshSeeds()
+            onboardingDoneSubject.send(true)
         }
     }
 }

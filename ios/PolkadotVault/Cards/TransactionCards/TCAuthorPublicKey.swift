@@ -12,14 +12,14 @@ struct TCAuthorPublicKey: View {
 
     var body: some View {
         HStack {
-            Identicon(identicon: value.identicon)
+            IdenticonView(identicon: value.identicon)
             VStack(alignment: .leading) {
                 Text(Localizable.TCAuthor.signedWith(value.encryption))
-                    .foregroundColor(Asset.textAndIconsTertiary.swiftUIColor)
+                    .foregroundColor(.textAndIconsTertiary)
                     .font(PrimaryFont.bodyL.font)
                 Text(value.publicKey)
                     .font(PrimaryFont.captionM.font)
-                    .foregroundColor(Asset.accentPink300.swiftUIColor)
+                    .foregroundColor(.accentPink300)
             }
             Spacer()
         }

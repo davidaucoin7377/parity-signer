@@ -1,7 +1,6 @@
 package io.parity.signer.screens.scan.importderivations
 
 import io.parity.signer.domain.backend.OperationResult
-import io.parity.signer.domain.getDebugDetailedDescriptionString
 import io.parity.signer.domain.storage.RepoResult
 import io.parity.signer.domain.storage.SeedRepository
 import io.parity.signer.domain.storage.mapError
@@ -11,7 +10,7 @@ import io.parity.signer.uniffi.ErrorDisplayed
 import io.parity.signer.uniffi.SeedKeysPreview
 import io.parity.signer.uniffi.importDerivations
 import io.parity.signer.uniffi.populateDerivationsHasPwd
-import io.parity.signer.uniffi.tryCreateImportedAddress
+import io.parity.signer.uniffi.tryCreateAddress
 
 
 class ImportDerivedKeysRepository(
@@ -36,50 +35,10 @@ class ImportDerivedKeysRepository(
 			seedRepository.getAllSeeds().mapError() ?: return RepoResult.Failure()
 		return try {
 			val filledSeedKeys = populateDerivationsHasPwd(seeds, seedPreviews)
+			System.gc()
 			RepoResult.Success(filledSeedKeys)
 		} catch (e: java.lang.Exception) {
 			RepoResult.Failure(e)
-		}
-	}
-
-	suspend fun createDynamicDerivationKeys(
-		seedName: String,
-		keysToImport: List<DdDetail>,
-	): OperationResult<Unit, ImportDerivedKeyError> {
-		val seedPhrase =
-			when (val seedResult = seedRepository.getSeedPhraseForceAuth(seedName)) {
-				is RepoResult.Failure -> {
-					return OperationResult.Err(ImportDerivedKeyError.AuthFailed)
-				}
-				is RepoResult.Success -> seedResult.result
-			}
-		val occuredErrors = mutableListOf<PathToError>()
-		keysToImport.forEach { key ->
-			try {
-				tryCreateImportedAddress(
-					seedName = seedName,
-					seedPhrase = seedPhrase,
-					path = key.path,
-					network = key.networkSpecsKey,
-				)
-			} catch (e: ErrorDisplayed) {
-				occuredErrors.add(
-					PathToError(
-						key.path,
-						e.message ?: ""
-					)
-				)
-			} catch (e: Error) {
-				occuredErrors.add(PathToError(key.path, e.localizedMessage ?: ""))
-			}
-		}
-
-		return if (occuredErrors.isEmpty()) {
-			OperationResult.Ok(Unit)
-		} else if (occuredErrors.count() == keysToImport.count()) {
-			OperationResult.Err(ImportDerivedKeyError.NoKeysImported(occuredErrors.map { it.errorLocalized }))
-		} else {
-			OperationResult.Err(ImportDerivedKeyError.KeyNotImported(occuredErrors))
 		}
 	}
 

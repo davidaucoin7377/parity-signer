@@ -13,6 +13,7 @@ import io.parity.signer.uniffi.historyAcknowledgeWarnings
 import io.parity.signer.uniffi.historyGetWarnings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import timber.log.Timber
 
 
 class NetworkExposedStateKeeper(
@@ -32,17 +33,23 @@ class NetworkExposedStateKeeper(
 		MutableStateFlow(null)
 	val bluetoothDisabledState: StateFlow<Boolean?> = _bluetoothDisabledState
 
+	private val _usbDisconnected: MutableStateFlow<Boolean?> =
+		MutableStateFlow(null)
+	val usbDisconnected: StateFlow<Boolean?> = _usbDisconnected
+
 	private val _airGapModeState: MutableStateFlow<NetworkState> =
 		MutableStateFlow(NetworkState.None)
 	val airGapModeState: StateFlow<NetworkState> = _airGapModeState
+
+	private val isCurentlyBreached: Boolean
+		get() = airPlaneModeEnabled.value == false || wifiDisabledState.value == false
+			|| bluetoothDisabledState.value == false || usbDisconnected.value == false
 
 	init {
 		registerAirplaneBroadcastReceiver()
 		registerWifiBroadcastReceiver()
 		registerBluetoothBroadcastReceiver()
-		reactOnAirplaneMode()
-		reactOnWifiAwareState()
-		reactOnBluetooth()
+		registerUsbBroadcastReceiver()
 	}
 
 	/**
@@ -64,6 +71,7 @@ class NetworkExposedStateKeeper(
 			}
 		}
 		appContext.registerReceiver(receiver, intentFilter)
+		reactOnAirplaneMode()
 	}
 
 	private fun registerBluetoothBroadcastReceiver() {
@@ -74,10 +82,22 @@ class NetworkExposedStateKeeper(
 			}
 		}
 		appContext.registerReceiver(receiver, intentFilter)
+		reactOnBluetooth()
 	}
 
-	private fun updateGeneralAirgap(isBreached: Boolean) {
-		if (isBreached) {
+	private fun registerUsbBroadcastReceiver() {
+		val intentFilter = IntentFilter("android.hardware.usb.action.USB_STATE")
+		val receiver: BroadcastReceiver = object : BroadcastReceiver() {
+			override fun onReceive(context: Context, intent: Intent) {
+				reactOnUsb(intent)
+			}
+		}
+		val oldIntent = appContext.registerReceiver(receiver, intentFilter)
+		oldIntent?.let { reactOnUsb(it) }
+	}
+
+	private fun updateGeneralAirgapState() {
+		if (isCurentlyBreached) {
 			if (airGapModeState.value != NetworkState.Active) {
 				_airGapModeState.value = NetworkState.Active
 				if (appContext.isDbCreatedAndOnboardingPassed()) {
@@ -100,7 +120,7 @@ class NetworkExposedStateKeeper(
 			0
 		) == 0
 		_airplaneModeEnabled.value = !airplaneModeOff
-		updateGeneralAirgap(airplaneModeOff)
+		updateGeneralAirgapState()
 	}
 
 	private fun reactOnBluetooth() {
@@ -108,7 +128,30 @@ class NetworkExposedStateKeeper(
 			appContext.applicationContext.getSystemService(BluetoothManager::class.java)?.adapter
 		val btEnabled = bluetooth?.isEnabled == true
 		_bluetoothDisabledState.value = !btEnabled
-		updateGeneralAirgap(btEnabled)
+		updateGeneralAirgapState()
+	}
+
+	private fun reactOnUsb(usbIntent: Intent) {
+		if (FeatureFlags.isEnabled(FeatureOption.SKIP_USB_CHECK)) {
+			_usbDisconnected.value = true
+			updateGeneralAirgapState()
+			return
+		}
+
+		if ((usbIntent.extras?.getBoolean("connected") == true)
+			|| (usbIntent.extras?.getBoolean("host_connected") == true)
+		) {
+			_usbDisconnected.value = false
+			updateGeneralAirgapState()
+		} else {
+			_usbDisconnected.value = true
+			updateGeneralAirgapState()
+		}
+		if ((usbIntent.extras?.getBoolean("connected") == null)
+			|| (usbIntent.extras?.getBoolean("host_connected")) == null
+		) {
+			Timber.d("USB", "usb action intent doesn't have connection state")
+		}
 	}
 
 	private fun registerWifiBroadcastReceiver() {
@@ -119,6 +162,7 @@ class NetworkExposedStateKeeper(
 			}
 		}
 		appContext.registerReceiver(receiver, intentFilter)
+		reactOnWifiAwareState()
 	}
 
 	private fun reactOnWifiAwareState() {
@@ -126,7 +170,7 @@ class NetworkExposedStateKeeper(
 			appContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager?
 		val wifiEnabled = wifi?.isWifiEnabled == true
 		_wifiDisabledState.value = !wifiEnabled
-		updateGeneralAirgap(wifiEnabled)
+		updateGeneralAirgapState()
 	}
 
 	/**

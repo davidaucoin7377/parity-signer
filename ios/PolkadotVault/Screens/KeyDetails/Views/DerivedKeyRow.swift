@@ -9,54 +9,34 @@ import SwiftUI
 
 struct DerivedKeyRow: View {
     let viewModel: DerivedKeyRowViewModel
-    @Binding var selectedKeys: [DerivedKeyRowModel]
-    @Binding var isPresentingSelectionOverlay: Bool
-
-    private var isItemSelected: Bool {
-        selectedKeys.map(\.viewModel).contains(viewModel)
-    }
 
     var body: some View {
         HStack(alignment: .center, spacing: Spacing.small) {
             NetworkIdenticon(
                 identicon: viewModel.identicon,
                 network: viewModel.network,
-                background: Asset.backgroundPrimary.swiftUIColor,
+                background: .backgroundPrimary,
                 size: Heights.identiconInCell
             )
             .padding(.top, Spacing.extraExtraSmall)
             .padding(.leading, Spacing.medium)
             VStack(alignment: .leading, spacing: Spacing.extraExtraSmall) {
-                if viewModel.isImported {
-                    Localizable.KeyDetails.Label.importedKey.text
-                        .foregroundColor(Asset.textAndIconsTertiary.swiftUIColor)
-                        .font(PrimaryFont.labelXXS.font)
-                }
                 if !isRoot {
                     fullPath
-                        .foregroundColor(Asset.textAndIconsTertiary.swiftUIColor)
+                        .foregroundColor(.textAndIconsTertiary)
                         .font(PrimaryFont.captionM.font)
                 }
                 HStack(spacing: Spacing.extraExtraSmall) {
                     Text(viewModel.base58.truncateMiddle())
-                        .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                        .foregroundColor(.textAndIconsPrimary)
                         .font(PrimaryFont.bodyL.font)
                         .lineLimit(1)
                 }
             }
             Spacer()
             VStack(alignment: .center) {
-                if isPresentingSelectionOverlay {
-                    if isItemSelected {
-                        Asset.checkmarkChecked.swiftUIImage
-                    } else {
-                        Asset.checkmarkUnchecked.swiftUIImage
-                            .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
-                    }
-                } else {
-                    Asset.chevronRight.swiftUIImage
-                        .foregroundColor(Asset.textAndIconsSecondary.swiftUIColor)
-                }
+                Image(.chevronRight)
+                    .foregroundColor(.textAndIconsSecondary)
             }
             .padding(.trailing, Spacing.large)
             .frame(minHeight: .zero, maxHeight: .infinity)
@@ -91,11 +71,8 @@ struct DerivedKeyRow: View {
                         path: "//polkadot",
                         hasPassword: false,
                         base58: "15Gsc678654FDSG0HA04H0A",
-                        isImported: true,
                         rootKeyName: ""
-                    ),
-                    selectedKeys: Binding<[DerivedKeyRowModel]>.constant([]),
-                    isPresentingSelectionOverlay: Binding<Bool>.constant(true)
+                    )
                 )
                 DerivedKeyRow(
                     viewModel: DerivedKeyRowViewModel(
@@ -103,11 +80,8 @@ struct DerivedKeyRow: View {
                         network: "kusama",
                         path: "",
                         hasPassword: false,
-                        base58: "15Gsc678654FDSG0HA04H0A",
-                        isImported: false
-                    ),
-                    selectedKeys: Binding<[DerivedKeyRowModel]>.constant([]),
-                    isPresentingSelectionOverlay: Binding<Bool>.constant(true)
+                        base58: "15Gsc678654FDSG0HA04H0A"
+                    )
                 )
                 DerivedKeyRow(
                     viewModel: DerivedKeyRowViewModel(
@@ -115,11 +89,8 @@ struct DerivedKeyRow: View {
                         network: "astar",
                         path: "//astar",
                         hasPassword: false,
-                        base58: "15Gsc678654FDSG0HA04H0A",
-                        isImported: false
-                    ),
-                    selectedKeys: Binding<[DerivedKeyRowModel]>.constant([]),
-                    isPresentingSelectionOverlay: Binding<Bool>.constant(true)
+                        base58: "15Gsc678654FDSG0HA04H0A"
+                    )
                 )
                 DerivedKeyRow(
                     viewModel: DerivedKeyRowViewModel(
@@ -127,11 +98,8 @@ struct DerivedKeyRow: View {
                         network: "kusama",
                         path: "//kusama",
                         hasPassword: true,
-                        base58: "15Gsc678654FDSG0HA04H0A",
-                        isImported: true
-                    ),
-                    selectedKeys: Binding<[DerivedKeyRowModel]>.constant([]),
-                    isPresentingSelectionOverlay: Binding<Bool>.constant(false)
+                        base58: "15Gsc678654FDSG0HA04H0A"
+                    )
                 )
                 DerivedKeyRow(
                     viewModel: DerivedKeyRowViewModel(
@@ -139,11 +107,8 @@ struct DerivedKeyRow: View {
                         network: "kusama",
                         path: "//kusama//verylongpathsolongitrequirestwolinesoftextormaybeevenmoremaybethree",
                         hasPassword: true,
-                        base58: "15Gsc678654FDSG0HA04H0A",
-                        isImported: false
-                    ),
-                    selectedKeys: Binding<[DerivedKeyRowModel]>.constant([]),
-                    isPresentingSelectionOverlay: Binding<Bool>.constant(false)
+                        base58: "15Gsc678654FDSG0HA04H0A"
+                    )
                 )
             }
             .preferredColorScheme(.dark)

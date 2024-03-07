@@ -51,7 +51,8 @@ final class ConnectivityMonitoringAdapterTests: XCTestCase {
 // MARK: - Mocks
 
 final class PathMonitorProtocolMock: PathMonitorProtocol {
-    var pathUpdateHandler: ((NWPath) -> Void)?
+    @preconcurrency
+    var pathUpdateHandler: (@Sendable (NWPath) -> Void)?
 
     var startQueueCallsCount = 0
     var startQueueReceivedQueue: [DispatchQueue] = []

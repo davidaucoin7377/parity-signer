@@ -5,14 +5,21 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Build
 import android.security.keystore.UserNotAuthenticatedException
-import android.util.Log
+import timber.log.Timber
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import io.parity.signer.R
 import io.parity.signer.domain.FeatureFlags
 import io.parity.signer.domain.FeatureOption
-import io.parity.signer.uniffi.historySeedNameWasShown
+import io.parity.signer.domain.backend.OperationResult
+import io.parity.signer.screens.error.ErrorStateDestinationState
+import io.parity.signer.uniffi.historySeedWasShown
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import java.security.UnrecoverableKeyException
+import javax.crypto.AEADBadTagException
 
 
 /**
@@ -24,7 +31,8 @@ import kotlinx.coroutines.flow.StateFlow
 class SeedStorage {
 
 	private val _lastKnownSeedNames = MutableStateFlow(arrayOf<String>())
-	val lastKnownSeedNames: StateFlow<Array<String>> = _lastKnownSeedNames
+	val lastKnownSeedNames: StateFlow<Array<String>> =
+		_lastKnownSeedNames.asStateFlow()
 	val isStrongBoxProtected: Boolean
 		get() = masterKey.isStrongBoxBacked
 
@@ -39,7 +47,7 @@ class SeedStorage {
 	/**
 	 * @throws UserNotAuthenticatedException
 	 */
-	fun init(appContext: Context) {
+	fun init(appContext: Context): OperationResult<Unit, ErrorStateDestinationState> {
 		hasStrongbox = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
 			appContext
 				.packageManager
@@ -48,7 +56,7 @@ class SeedStorage {
 			false
 		}
 
-		Log.d("strongbox available:", hasStrongbox.toString())
+		Timber.d("strongbox available:", hasStrongbox.toString())
 
 		// Init crypto for seeds:
 		// https://developer.android.com/training/articles/keystore
@@ -56,32 +64,43 @@ class SeedStorage {
 			MasterKey.Builder(appContext)
 				.setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
 				.setRequestStrongBoxBacked(true)
-				.setUserAuthenticationRequired(true, MasterKey.getDefaultAuthenticationValidityDurationSeconds())
+				.setUserAuthenticationRequired(
+					true,
+					MasterKey.getDefaultAuthenticationValidityDurationSeconds()
+				)
 				.build()
 		} else {
 			MasterKey.Builder(appContext)
 				.setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-				.setUserAuthenticationRequired(true, MasterKey.getDefaultAuthenticationValidityDurationSeconds())
+				.setUserAuthenticationRequired(
+					true,
+					MasterKey.getDefaultAuthenticationValidityDurationSeconds()
+				)
 				.build()
 		}
 
-		Log.e("ENCRY", "$appContext $KEYSTORE_NAME $masterKey")
+		Timber.e("ENCRY", "$appContext $KEYSTORE_NAME $masterKey")
 		//we need to be authenticated for this
-		sharedPreferences =
-			if (FeatureFlags.isEnabled(FeatureOption.SKIP_UNLOCK_FOR_DEVELOPMENT)) {
-				appContext.getSharedPreferences(
-					"FeatureOption.SKIP_UNLOCK_FOR_DEVELOPMENT",
-					Context.MODE_PRIVATE
-				)
-			} else {
-				EncryptedSharedPreferences(
-					appContext,
-					KEYSTORE_NAME,
-					masterKey,
-					EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-					EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-				)
-			}
+		try {
+			sharedPreferences =
+				if (FeatureFlags.isEnabled(FeatureOption.SKIP_UNLOCK_FOR_DEVELOPMENT)) {
+					appContext.getSharedPreferences(
+						"FeatureOption.SKIP_UNLOCK_FOR_DEVELOPMENT",
+						Context.MODE_PRIVATE
+					)
+				} else {
+					EncryptedSharedPreferences(
+						appContext,
+						KEYSTORE_NAME,
+						masterKey,
+						EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+						EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+					)
+				}
+		} catch (e: Exception) {
+			return OperationResult.Err(consumeStorageAuthError(e, appContext))
+		}
+		return OperationResult.Ok(Unit)
 	}
 
 
@@ -95,6 +114,9 @@ class SeedStorage {
 
 	/**
 	 * Add seed, encrypt it, and create default accounts
+	 *
+	 * Don't forget to call tell rust seed names -so getSeedNames()
+	 * called and last known elements updated
 	 *
 	 * @throws UserNotAuthenticatedException
 	 */
@@ -113,13 +135,20 @@ class SeedStorage {
 			putString(seedName, seedPhrase)
 			apply()
 		}
+
+		_lastKnownSeedNames.update { lastState ->
+			lastState + seedName
+		}
 	}
 
 	/**
 	 * @throws UserNotAuthenticatedException
 	 */
-	fun checkIfSeedNameAlreadyExists(seedPhrase: String) =
-		sharedPreferences.all.values.contains(seedPhrase)
+	fun checkIfSeedNameAlreadyExists(seedPhrase: String) : Boolean {
+		val result = sharedPreferences.all.values.contains(seedPhrase)
+		Runtime.getRuntime().gc()
+		return result
+	}
 
 	/**
 	 * @throws UserNotAuthenticatedException
@@ -133,17 +162,23 @@ class SeedStorage {
 			""
 		} else {
 			if (showInLogs) {
-				historySeedNameWasShown(seedName)
+				historySeedWasShown(seedName)
 			}
 			seedPhrase
 		}
 	}
 
 	/**
+	 * Don't forget to call tell rust seed names -so getSeedNames()
+	 * called and last known elements updated
+	 *
 	 * @throws [UserNotAuthenticatedException]
 	 */
 	fun removeSeed(seedName: String) {
 		sharedPreferences.edit().remove(seedName).apply()
+		_lastKnownSeedNames.update { lastState ->
+			lastState.filter { it != seedName }.toTypedArray()
+		}
 	}
 
 	/**
@@ -152,7 +187,38 @@ class SeedStorage {
 	fun wipe() {
 		sharedPreferences.edit().clear().commit() // No, not apply(), do it now!
 	}
-
-
-
 }
+
+private fun consumeStorageAuthError(e: Exception, context: Context): ErrorStateDestinationState {
+	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+		when (e) {
+			is AEADBadTagException,
+			is android.security.KeyStoreException,
+			is UnrecoverableKeyException -> {
+				return ErrorStateDestinationState(
+					argHeader = context.getString(R.string.error_secure_storage_title),
+					argDescription = context.getString(R.string.error_secure_storage_description),
+					argVerbose = e.stackTraceToString()
+				)
+			}
+			else -> throw e
+		}
+	} else {
+		when (e) {
+			is AEADBadTagException,
+			is UnrecoverableKeyException -> {
+				return ErrorStateDestinationState(
+					argHeader = context.getString(R.string.error_secure_storage_title),
+					argDescription = context.getString(R.string.error_secure_storage_description),
+					argVerbose = e.stackTraceToString()
+				)
+			}
+			else -> throw e
+		}
+	}
+}
+
+
+
+
+

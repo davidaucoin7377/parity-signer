@@ -2,54 +2,92 @@
 //  RuntimePropertiesProviderTests.swift
 //  PolkadotVaultTests
 //
-//  Created by Krzysztof Rodak on 02/08/2022.
+//  Created by Krzysztof Rodak on 22/11/2023.
 //
 
+import Foundation
 @testable import PolkadotVault
 import XCTest
 
 final class RuntimePropertiesProviderTests: XCTestCase {
-    private var processInfo: ProcessInfoProtocolMock!
+    private var appInformationContainer: ApplicationInformationContainerMock.Type!
     private var subject: RuntimePropertiesProvider!
 
     override func setUp() {
         super.setUp()
-
-        processInfo = ProcessInfoProtocolMock()
+        appInformationContainer = ApplicationInformationContainerMock.self
         subject = RuntimePropertiesProvider(
-            processInfo: processInfo
+            appInformationContainer: appInformationContainer
         )
     }
 
-    func test_isInDevelopmentMode_whenRuntimePropertiesContainsFlagWithTrue_returnsTrue() {
-        // Given
-        processInfo.environment = [RuntimePropertiesProvider.Properties.developmentMode.description:
-            RuntimePropertiesProvider.PropertiesValues.true.description]
-
-        // When
-        let result = subject.isInDevelopmentMode
-
-        // Then
-        XCTAssertTrue(result)
+    override func tearDown() {
+        appInformationContainer.reset()
+        subject = nil
+        super.tearDown()
     }
 
-    func test_isInDevelopmentMode_whenRuntimePropertiesContainsFlagWithFalse_returnsFalse() {
+    func test_runtimeMode_whenUnknownMode_returnsProduction() {
         // Given
-        processInfo.environment = [RuntimePropertiesProvider.Properties.developmentMode.description:
-            RuntimePropertiesProvider.PropertiesValues.false.description]
+        appInformationContainer.appRuntimeMode = "fdsfd"
 
         // When
-        let result = subject.isInDevelopmentMode
+        let result = subject.runtimeMode
 
         // Then
-        XCTAssertFalse(result)
+        XCTAssertEqual(result, .production)
     }
 
-    func test_isInDevelopmentMode_whenRuntimePropertiesContainsNoFlag_returnsFalse() {
+    func test_runtimeMode_whenQAValue_returnsQA() {
         // Given
-        processInfo.environment = [:]
+        appInformationContainer.appRuntimeMode = "qa"
+
         // When
-        let result = subject.isInDevelopmentMode
+        let result = subject.runtimeMode
+
+        // Then
+        XCTAssertEqual(result, .qa)
+    }
+
+    func test_runtimeMode_whenProductionValue_returnsProduction() {
+        // Given
+        appInformationContainer.appRuntimeMode = "production"
+
+        // When
+        let result = subject.runtimeMode
+
+        // Then
+        XCTAssertEqual(result, .production)
+    }
+
+    func test_runtimeMode_whenDebugValue_returnsDebug() {
+        // Given
+        appInformationContainer.appRuntimeMode = "debug"
+
+        // When
+        let result = subject.runtimeMode
+
+        // Then
+        XCTAssertEqual(result, .debug)
+    }
+
+    func test_runtimeMode_whenDynamicDerivationsEnabled_returnsTrue() {
+        // Given
+        appInformationContainer.dynamicDerivationsEnabled = "true"
+
+        // When
+        let result = subject.dynamicDerivationsEnabled
+
+        // Then
+        XCTAssert(result)
+    }
+
+    func test_runtimeMode_whenDynamicDerivationsDisabled_returnsFalse() {
+        // Given
+        appInformationContainer.dynamicDerivationsEnabled = "false"
+
+        // When
+        let result = subject.dynamicDerivationsEnabled
 
         // Then
         XCTAssertFalse(result)
@@ -58,6 +96,12 @@ final class RuntimePropertiesProviderTests: XCTestCase {
 
 // MARK: - Mocks
 
-final class ProcessInfoProtocolMock: ProcessInfoProtocol {
-    var environment: [String: String] = [:]
+final class ApplicationInformationContainerMock: ApplicationInformationContaining {
+    static var dynamicDerivationsEnabled: String = ""
+    static var appRuntimeMode: String = ""
+
+    static func reset() {
+        dynamicDerivationsEnabled = ""
+        appRuntimeMode = ""
+    }
 }

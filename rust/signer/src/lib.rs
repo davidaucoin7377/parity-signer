@@ -26,6 +26,8 @@ mod ffi_types;
 
 use crate::ffi_types::*;
 use db_handling::identities::{import_all_addrs, inject_derivations_has_pwd};
+use db_handling::{Error as DbHandlingError, Error};
+use definitions::keyring::AddressKey;
 use lazy_static::lazy_static;
 use navigator::Error as NavigatorError;
 use sled::Db;
@@ -38,6 +40,7 @@ use std::{
 use transaction_parsing::dynamic_derivations::process_dynamic_derivations;
 use transaction_parsing::entry_to_transactions_with_decoding;
 use transaction_parsing::Error as TxParsingError;
+use transaction_signing::SufficientContent;
 
 lazy_static! {
     static ref DB: Arc<RwLock<Option<Db>>> = Arc::new(RwLock::new(None));
@@ -85,6 +88,10 @@ pub enum ErrorDisplayed {
     NoMetadata {
         name: String,
     },
+    /// Provided password is incorrect
+    WrongPassword,
+    /// Database schema mismatch
+    DbSchemaMismatch,
 }
 
 impl From<NavigatorError> for ErrorDisplayed {
@@ -109,7 +116,7 @@ impl From<NavigatorError> for ErrorDisplayed {
                     ref errors,
                 } => {
                     if let Some((want, parser::Error::WrongNetworkVersion { in_metadata, .. })) =
-                        errors.get(0)
+                        errors.first()
                     {
                         Self::MetadataOutdated {
                             name: network_name.to_string(),
@@ -132,6 +139,18 @@ impl From<NavigatorError> for ErrorDisplayed {
                 },
                 _ => Self::Str { s: format!("{e}") },
             },
+            NavigatorError::TransactionSigning(transaction_signing::Error::WrongPassword) => {
+                Self::WrongPassword
+            }
+            _ => Self::Str { s: format!("{e}") },
+        }
+    }
+}
+
+impl From<DbHandlingError> for ErrorDisplayed {
+    fn from(e: DbHandlingError) -> Self {
+        match &e {
+            Error::DbSchemaMismatch { .. } => Self::DbSchemaMismatch,
             _ => Self::Str { s: format!("{e}") },
         }
     }
@@ -342,23 +361,6 @@ fn try_create_address(
         .map_err(|e| e.to_string().into())
 }
 
-fn try_create_imported_address(
-    seed_name: &str,
-    seed_phrase: &str,
-    path: &str,
-    network: &str,
-) -> anyhow::Result<(), ErrorDisplayed> {
-    let network = NetworkSpecsKey::from_hex(network).map_err(|e| format!("{e}"))?;
-    db_handling::identities::try_create_imported_address(
-        &get_db()?,
-        seed_name,
-        seed_phrase,
-        path,
-        &network,
-    )
-    .map_err(|e| e.to_string().into())
-}
-
 /// Must be called with `DecodeSequenceResult::DynamicDerivationTransaction` payload
 fn sign_dd_transaction(
     payload: &[String],
@@ -407,7 +409,7 @@ fn history_entry_system(event: Event) -> anyhow::Result<(), ErrorDisplayed> {
 /// Must be called every time seed backup shows seed to user
 ///
 /// Makes record in log
-fn history_seed_name_was_shown(seed_name: &str) -> anyhow::Result<(), ErrorDisplayed> {
+fn history_seed_was_shown(seed_name: &str) -> anyhow::Result<(), ErrorDisplayed> {
     db_handling::manage_history::seed_name_was_shown(&get_db()?, seed_name.to_string())
         .map_err(|e| e.to_string().into())
 }
@@ -436,8 +438,11 @@ fn encode_to_qr(payload: &[u8], is_danger: bool) -> anyhow::Result<Vec<u8>, Stri
 }
 
 /// Get all networks registered within this device
-fn get_all_networks() -> anyhow::Result<Vec<MMNetwork>, ErrorDisplayed> {
-    db_handling::interface_signer::show_all_networks(&get_db()?).map_err(|e| e.to_string().into())
+fn get_managed_networks() -> anyhow::Result<MManageNetworks, ErrorDisplayed> {
+    Ok(MManageNetworks {
+        networks: db_handling::interface_signer::show_all_networks(&get_db()?)
+            .map_err(|e| e.to_string())?,
+    })
 }
 
 fn get_logs() -> anyhow::Result<MLog, ErrorDisplayed> {
@@ -477,9 +482,101 @@ fn handle_log_comment(string_from_user: &str) -> anyhow::Result<(), ErrorDisplay
         .map_err(|e| ErrorDisplayed::from(e.to_string()))
 }
 
+fn get_seeds(names_phone_knows: &[String]) -> anyhow::Result<MSeeds, ErrorDisplayed> {
+    let seed_name_cards = db_handling::interface_signer::get_all_seed_names_with_identicons(
+        &get_db()?,
+        names_phone_knows,
+    )
+    .map_err(|e| ErrorDisplayed::from(e.to_string()))?;
+
+    Ok(MSeeds { seed_name_cards })
+}
+
+fn get_key_set_public_key(
+    address: &str,
+    network_specs_key: &str,
+) -> anyhow::Result<MKeyDetails, ErrorDisplayed> {
+    let address_key =
+        AddressKey::from_hex(address).map_err(|e| ErrorDisplayed::from(e.to_string()))?;
+
+    let network_specs_key = NetworkSpecsKey::from_hex(network_specs_key)
+        .map_err(|e| ErrorDisplayed::from(e.to_string()))?;
+
+    let address_details = db_handling::helpers::get_address_details(&get_db()?, &address_key)
+        .map_err(|e| ErrorDisplayed::from(e.to_string()))?;
+
+    db_handling::interface_signer::export_key(
+        &get_db()?,
+        address_key.multi_signer(),
+        &address_details.seed_name,
+        &network_specs_key,
+    )
+    .map_err(|e| ErrorDisplayed::from(e.to_string()))
+}
+
+fn remove_derived_key(
+    address: &str,
+    network_specs_key: &str,
+) -> anyhow::Result<(), ErrorDisplayed> {
+    let address_key =
+        AddressKey::from_hex(address).map_err(|e| ErrorDisplayed::from(e.to_string()))?;
+    let network_specs_key = NetworkSpecsKey::from_hex(network_specs_key)
+        .map_err(|e| ErrorDisplayed::from(e.to_string()))?;
+    db_handling::identities::remove_key(&get_db()?, address_key.multi_signer(), &network_specs_key)
+        .map_err(|e| ErrorDisplayed::from(e.to_string()))
+}
+
+fn remove_key_set(seed_name: &str) -> anyhow::Result<(), ErrorDisplayed> {
+    db_handling::identities::remove_seed(&get_db()?, seed_name)
+        .map_err(|e| ErrorDisplayed::from(e.to_string()))
+}
+
+fn get_managed_network_details(
+    network_key: &str,
+) -> anyhow::Result<MNetworkDetails, ErrorDisplayed> {
+    let network_key = NetworkSpecsKey::from_hex(network_key).map_err(|e| format!("{e}"))?;
+    db_handling::interface_signer::network_details_by_key(&get_db()?, &network_key)
+        .map_err(|e| ErrorDisplayed::from(e.to_string()))
+}
+
+fn remove_metadata_on_managed_network(
+    network_key: &str,
+    metadata_specs_version: &str,
+) -> anyhow::Result<(), ErrorDisplayed> {
+    let network_key = NetworkSpecsKey::from_hex(network_key).map_err(|e| format!("{e}"))?;
+    let version = metadata_specs_version
+        .parse::<u32>()
+        .map_err(|e| format!("{e}"))?;
+    db_handling::helpers::remove_metadata(&get_db()?, &network_key, version)
+        .map_err(|e| ErrorDisplayed::from(e.to_string()))
+}
+
+fn seed_phrase_guess_words(user_input: &str) -> Vec<String> {
+    db_handling::interface_signer::guess(user_input)
+        .into_iter()
+        .map(|s| s.to_owned())
+        .collect()
+}
+
+fn get_verifier_details() -> anyhow::Result<MVerifierDetails, ErrorDisplayed> {
+    Ok(db_handling::helpers::get_general_verifier(&get_db()?)
+        .map_err(|e| e.to_string())?
+        .show_card())
+}
+
+fn remove_managed_network(network_key: &str) -> anyhow::Result<(), ErrorDisplayed> {
+    let network_key = NetworkSpecsKey::from_hex(network_key).map_err(|e| format!("{e}"))?;
+    db_handling::helpers::remove_network(&get_db()?, &network_key)
+        .map_err(|e| ErrorDisplayed::from(e.to_string()))
+}
+
 fn print_new_seed(new_seed_name: &str) -> anyhow::Result<MNewSeedBackup, ErrorDisplayed> {
     db_handling::interface_signer::print_new_seed(new_seed_name)
         .map_err(|e| ErrorDisplayed::from(e.to_string()))
+}
+
+fn validate_seed_phrase(seed_phrase: &str) -> bool {
+    db_handling::helpers::validate_mnemonic(seed_phrase)
 }
 
 fn create_key_set(
@@ -489,6 +586,83 @@ fn create_key_set(
 ) -> anyhow::Result<(), ErrorDisplayed> {
     db_handling::identities::create_key_set(&get_db()?, seed_name, seed_phrase, networks)
         .map_err(|e| ErrorDisplayed::from(e.to_string()))
+}
+
+fn check_db_version() -> anyhow::Result<(), ErrorDisplayed> {
+    db_handling::helpers::assert_db_version(&get_db()?).map_err(ErrorDisplayed::from)
+}
+
+fn get_keys_for_signing() -> Result<MSignSufficientCrypto, ErrorDisplayed> {
+    let identities = db_handling::interface_signer::print_all_identities(&get_db()?)
+        .map_err(|e| ErrorDisplayed::from(e.to_string()))?;
+    Ok(MSignSufficientCrypto { identities })
+}
+
+fn validate_key_password(
+    address_key: &str,
+    seed_phrase: &str,
+    password: &str,
+) -> Result<bool, ErrorDisplayed> {
+    let address_key = AddressKey::from_hex(address_key).map_err(|e| format!("{e}"))?;
+    db_handling::identities::validate_key_password(&get_db()?, &address_key, seed_phrase, password)
+        .map_err(|e| e.into())
+}
+
+/// Create Banana Split shares from secret
+fn bs_encrypt(
+    secret: &str,
+    title: &str,
+    passphrase: &str,
+    total_shards: u32,
+    required_shards: u32,
+) -> Result<Vec<QrData>, ErrorDisplayed> {
+    navigator::banana_split_encode(secret, title, passphrase, total_shards, required_shards)
+        .map_err(|e| ErrorDisplayed::from(e.to_string()))
+}
+
+/// Generate Banana Split passphrase
+fn bs_generate_passphrase(n: u32) -> String {
+    navigator::banana_split_passphrase(n)
+}
+
+fn sign_metadata_with_key(
+    network_key: &str,
+    metadata_specs_version: &str,
+    signing_address_key: &str,
+    seed_phrase: &str,
+    password: Option<String>,
+) -> Result<MSufficientCryptoReady, ErrorDisplayed> {
+    let network_key = NetworkSpecsKey::from_hex(network_key).map_err(|e| format!("{e}"))?;
+    let version = metadata_specs_version
+        .parse::<u32>()
+        .map_err(|e| format!("{e}"))?;
+    let address_key = AddressKey::from_hex(signing_address_key).map_err(|e| format!("{e}"))?;
+    navigator::sign_sufficient_content(
+        &get_db()?,
+        &address_key,
+        SufficientContent::LoadMeta(network_key, version),
+        seed_phrase,
+        &password.unwrap_or("".to_owned()),
+    )
+    .map_err(|e| e.into())
+}
+
+fn sign_network_spec_with_key(
+    network_key: &str,
+    signing_address_key: &str,
+    seed_phrase: &str,
+    password: Option<String>,
+) -> Result<MSufficientCryptoReady, ErrorDisplayed> {
+    let network_key = NetworkSpecsKey::from_hex(network_key).map_err(|e| format!("{e}"))?;
+    let address_key = AddressKey::from_hex(signing_address_key).map_err(|e| format!("{e}"))?;
+    navigator::sign_sufficient_content(
+        &get_db()?,
+        &address_key,
+        SufficientContent::AddSpecs(network_key),
+        seed_phrase,
+        &password.unwrap_or("".to_owned()),
+    )
+    .map_err(|e| e.into())
 }
 
 /// Must be called once to initialize logging from Rust in development mode.

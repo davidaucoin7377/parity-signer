@@ -30,11 +30,12 @@ struct SelectKeySetsForNetworkKeyView: View {
                         }
                     }
                     HStack(spacing: Spacing.extraSmall) {
-                        SecondaryButton(
-                            action: viewModel.onCancelTap(),
-                            text: Localizable.SelectKeySetsForNetworkKey.Action.cancel.key
+                        ActionButton(
+                            action: viewModel.onCancelTap,
+                            text: Localizable.SelectKeySetsForNetworkKey.Action.cancel.key,
+                            style: .secondary()
                         )
-                        PrimaryButton(
+                        ActionButton(
                             action: viewModel.onDoneTap,
                             text: Localizable.SelectKeySetsForNetworkKey.Action.create.key,
                             style: .primary(isDisabled: .constant(viewModel.selectedSeedNames.isEmpty))
@@ -62,10 +63,10 @@ struct SelectKeySetsForNetworkKeyView: View {
     func mainContent() -> some View {
         VStack(alignment: .leading, spacing: Spacing.medium) {
             Text(Localizable.SelectKeySetsForNetworkKey.Label.title(viewModel.networkName))
-                .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                .foregroundColor(.textAndIconsPrimary)
                 .font(PrimaryFont.titleL.font)
             Localizable.SelectKeySetsForNetworkKey.Label.content.text
-                .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                .foregroundColor(.textAndIconsPrimary)
                 .font(PrimaryFont.bodyL.font)
         }
         .padding(.horizontal, Spacing.large)
@@ -94,13 +95,14 @@ struct SelectKeySetsForNetworkKeyView: View {
     func item(for seedName: String) -> some View {
         HStack(alignment: .center, spacing: 0) {
             Text(seedName.capitalized)
-                .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                .foregroundColor(.textAndIconsPrimary)
                 .font(PrimaryFont.titleS.font)
             Spacer()
             if viewModel.isSelected(seedName) {
-                Asset.checkmarkChecked.swiftUIImage
+                Image(.checkmarkChecked)
+                    .foregroundColor(.accentPink300)
             } else {
-                Asset.checkmarkUnchecked.swiftUIImage
+                Image(.checkmarkUnchecked)
             }
         }
         .contentShape(Rectangle())
@@ -115,7 +117,7 @@ struct SelectKeySetsForNetworkKeyView: View {
     func selectAllSeeds() -> some View {
         HStack(alignment: .center, spacing: 0) {
             Localizable.SelectKeySetsForNetworkKey.Action.selectAll.text
-                .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                .foregroundColor(.textAndIconsPrimary)
                 .font(PrimaryFont.titleS.font)
             Spacer()
         }

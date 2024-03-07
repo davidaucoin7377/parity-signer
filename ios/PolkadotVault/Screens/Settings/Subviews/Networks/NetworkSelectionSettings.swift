@@ -21,7 +21,7 @@ struct NetworkSelectionSettings: View {
                         action: { presentationMode.wrappedValue.dismiss() }
                     )],
                     rightButtons: [.init(type: .empty)],
-                    backgroundColor: Asset.backgroundPrimary.swiftUIColor
+                    backgroundColor: .backgroundPrimary
                 )
             )
             ScrollView(showsIndicators: false) {
@@ -30,13 +30,13 @@ struct NetworkSelectionSettings: View {
                         item(for: $0)
                     }
                     HStack(alignment: .center, spacing: 0) {
-                        Asset.add.swiftUIImage
-                            .foregroundColor(Asset.textAndIconsTertiary.swiftUIColor)
+                        Image(.addLarge)
+                            .foregroundColor(.textAndIconsTertiary)
                             .frame(width: Heights.networkLogoInCell, height: Heights.networkLogoInCell)
-                            .background(Circle().foregroundColor(Asset.fill12.swiftUIColor))
+                            .background(Circle().foregroundColor(.fill12))
                             .padding(.trailing, Spacing.small)
                         Text(Localizable.Settings.Networks.Action.add.string)
-                            .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                            .foregroundColor(.textAndIconsPrimary)
                             .font(PrimaryFont.labelL.font)
                         Spacer()
                     }
@@ -60,7 +60,7 @@ struct NetworkSelectionSettings: View {
                 isActive: $viewModel.isPresentingDetails
             ) { EmptyView() }
         }
-        .background(Asset.backgroundPrimary.swiftUIColor)
+        .background(.backgroundPrimary)
         .fullScreenModal(
             isPresented: $viewModel.isShowingQRScanner,
             onDismiss: viewModel.onQRScannerDismiss
@@ -75,6 +75,15 @@ struct NetworkSelectionSettings: View {
             viewModel.snackbarViewModel,
             isPresented: $viewModel.isSnackbarPresented
         )
+        .fullScreenModal(
+            isPresented: $viewModel.isPresentingError
+        ) {
+            ErrorBottomModal(
+                viewModel: viewModel.presentableError,
+                isShowingBottomAlert: $viewModel.isPresentingError
+            )
+            .clearModalBackground()
+        }
     }
 
     @ViewBuilder
@@ -83,12 +92,12 @@ struct NetworkSelectionSettings: View {
             NetworkLogoIcon(networkName: network.logo)
                 .padding(.trailing, Spacing.small)
             Text(network.title.capitalized)
-                .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                .foregroundColor(.textAndIconsPrimary)
                 .font(PrimaryFont.labelL.font)
             Spacer()
-            Asset.chevronRight.swiftUIImage
+            Image(.chevronRight)
                 .frame(width: Sizes.rightChevronContainerSize, height: Sizes.rightChevronContainerSize)
-                .foregroundColor(Asset.textAndIconsTertiary.swiftUIColor)
+                .foregroundColor(.textAndIconsTertiary)
         }
         .contentShape(Rectangle())
         .padding(.horizontal, Spacing.medium)
@@ -102,19 +111,21 @@ struct NetworkSelectionSettings: View {
 extension NetworkSelectionSettings {
     final class ViewModel: ObservableObject {
         private let cancelBag = CancelBag()
-        private let service: ManageNetworksService
-        private let networkDetailsService: ManageNetworkDetailsService
+        private let service: GetManagedNetworksServicing
+        private let networkDetailsService: ManageNetworkDetailsServicing
         @Published var networks: [MmNetwork] = []
-        @Published var selectedDetailsKey: String!
         @Published var selectedDetails: MNetworkDetails!
+        @Published var selectedDetailsKey: String!
         @Published var isPresentingDetails = false
         @Published var isShowingQRScanner: Bool = false
-        var snackbarViewModel: SnackbarViewModel = .init(title: "")
+        @Published var snackbarViewModel: SnackbarViewModel = .init(title: "")
         @Published var isSnackbarPresented: Bool = false
+        @Published var isPresentingError: Bool = false
+        @Published var presentableError: ErrorBottomModalViewModel = .alertError(message: "")
 
         init(
-            service: ManageNetworksService = ManageNetworksService(),
-            networkDetailsService: ManageNetworkDetailsService = ManageNetworkDetailsService()
+            service: GetManagedNetworksServicing = GetManagedNetworksService(),
+            networkDetailsService: ManageNetworkDetailsServicing = ManageNetworkDetailsService()
         ) {
             self.service = service
             self.networkDetailsService = networkDetailsService
@@ -124,8 +135,17 @@ extension NetworkSelectionSettings {
 
         func onTap(_ network: MmNetwork) {
             selectedDetailsKey = network.key
-            selectedDetails = networkDetailsService.refreshCurrentNavigationState(network.key)
-            isPresentingDetails = true
+            networkDetailsService.getNetworkDetails(network.key) { [weak self] result in
+                guard let self else { return }
+                switch result {
+                case let .success(selectedDetails):
+                    self.selectedDetails = selectedDetails
+                    isPresentingDetails = true
+                case let .failure(error):
+                    presentableError = .alertError(message: error.localizedDescription)
+                    isPresentingError = true
+                }
+            }
         }
 
         func onAddTap() {
@@ -152,14 +172,24 @@ extension NetworkSelectionSettings {
 
 private extension NetworkSelectionSettings.ViewModel {
     func onDetailsDismiss() {
-        $isPresentingDetails.sink { [weak self] isPresented in
-            guard let self = self, !isPresented else { return }
-            self.updateNetworks()
-        }.store(in: cancelBag)
+        $isPresentingDetails
+            .dropFirst()
+            .sink { [weak self] isPresented in
+                guard let self, !isPresented else { return }
+                updateNetworks()
+            }.store(in: cancelBag)
     }
 
     func updateNetworks() {
-        networks = service.manageNetworks()
+        service.getNetworks { result in
+            switch result {
+            case let .success(networks):
+                self.networks = networks
+            case let .failure(error):
+                self.presentableError = .alertError(message: error.localizedDescription)
+                self.isPresentingError = true
+            }
+        }
     }
 }
 

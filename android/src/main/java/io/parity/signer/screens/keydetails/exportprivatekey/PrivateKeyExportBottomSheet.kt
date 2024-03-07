@@ -19,11 +19,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import io.parity.signer.R
-import io.parity.signer.components.IdentIconWithNetwork
+import io.parity.signer.components.networkicon.IdentIconWithNetwork
 import io.parity.signer.components.NetworkCardModel
 import io.parity.signer.components.base.BottomSheetHeader
 import io.parity.signer.components.sharedcomponents.*
-import io.parity.signer.components.toImageContent
 import io.parity.signer.components.toNetworkCardModel
 import io.parity.signer.domain.*
 import io.parity.signer.screens.keydetails.exportprivatekey.PrivateKeyExportModel.Companion.SHOW_PRIVATE_KEY_TIMEOUT
@@ -38,7 +37,7 @@ import kotlinx.coroutines.runBlocking
 @Composable
 fun PrivateKeyExportBottomSheet(
 	model: PrivateKeyExportModel,
-	navigator: Navigator,
+	onClose: Callback,
 ) {
 	val sidePadding = 24.dp
 	Column(
@@ -46,36 +45,37 @@ fun PrivateKeyExportBottomSheet(
 			.fillMaxWidth(),
 		horizontalAlignment = Alignment.CenterHorizontally,
 	) {
-		BottomSheetHeader(stringResource(R.string.export_private_key_title)) {
-			navigator.backAction()
-		}
+		BottomSheetHeader(
+			title = stringResource(R.string.export_private_key_title),
+			onCloseClicked = onClose,
+		)
 		//scrollable part if doesn't fit into screen
 		Column(
 			modifier = Modifier
-                .verticalScroll(rememberScrollState())
-                .weight(weight = 1f, fill = false)
-                .padding(start = sidePadding, end = sidePadding)
+				.verticalScroll(rememberScrollState())
+				.weight(weight = 1f, fill = false)
+				.padding(start = sidePadding, end = sidePadding)
 		) {
 			val qrRounding = dimensionResource(id = R.dimen.qrShapeCornerRadius)
 			val plateShape =
 				RoundedCornerShape(qrRounding)
 			Column(
 				modifier = Modifier
-                    .clip(plateShape)
-                    .border(
-                        BorderStroke(1.dp, MaterialTheme.colors.appliedStroke),
-                        plateShape
-                    )
-                    .background(MaterialTheme.colors.fill6, plateShape)
+					.clip(plateShape)
+					.border(
+						BorderStroke(1.dp, MaterialTheme.colors.appliedStroke),
+						plateShape
+					)
+					.background(MaterialTheme.colors.fill6, plateShape)
 			) {
 				Box(
 					modifier = Modifier
-                        .fillMaxWidth(1f)
-                        .aspectRatio(1.1f)
-                        .background(
-                            Color.White,
-                            RoundedCornerShape(qrRounding)
-                        ),
+						.fillMaxWidth(1f)
+						.aspectRatio(1.1f)
+						.background(
+							Color.White,
+							RoundedCornerShape(qrRounding)
+						),
 					contentAlignment = Alignment.Center,
 				) {
 					val qrImage =
@@ -114,8 +114,9 @@ fun PrivateKeyExportBottomSheet(
 			val timerText = stringResource(R.string.export_private_key_timer_label)
 			CircularCountDownTimer(
 				SHOW_PRIVATE_KEY_TIMEOUT,
-				timerText
-			) { navigator.backAction() }
+				timerText,
+				onTimeOutAction = onClose,
+			)
 		}
 	}
 	DisableScreenshots()
@@ -145,7 +146,7 @@ fun MKeyDetails.toPrivateKeyExportModel(): PrivateKeyExportModel {
 				if (it.isLowerCase()) it.titlecase() else it.toString()
 			},
 			cardBase = KeyCardModelBase(
-				identIcon = address.identicon.toImageContent(),
+				identIcon = address.identicon,
 				seedName = address.seedName,
 				hasPassword = address.hasPwd,
 				networkLogo = networkInfo.networkLogo,
@@ -170,7 +171,7 @@ private fun PreviewPrivateKeyExportBottomSheet() {
 	SignerNewTheme {
 		PrivateKeyExportBottomSheet(
 			model = PrivateKeyExportModel.createMock(),
-			EmptyNavigator()
+			{},
 		)
 	}
 }

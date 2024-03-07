@@ -1,14 +1,16 @@
 package io.parity.signer.screens.settings.logs.logslist
 
-import android.util.Log
+import timber.log.Timber
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
@@ -16,7 +18,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import io.parity.signer.domain.backend.CompletableResult
 import io.parity.signer.domain.Callback
-import io.parity.signer.domain.Navigator
 import io.parity.signer.screens.initial.WaitingScreen
 import io.parity.signer.screens.settings.logs.LogsSubgraph
 import io.parity.signer.screens.settings.logs.LogsViewModel
@@ -26,20 +27,19 @@ import io.parity.signer.ui.BottomSheetWrapperRoot
 
 @Composable
 fun LogsScreenFull(
-	rootNavigator: Navigator,
 	navController: NavController,
 ) {
 	val menuNavController = rememberNavController()
 	val viewModel: LogsViewModel = viewModel<LogsViewModel>()
 	val context = LocalContext.current
 
-	val logsState = viewModel.logsState.collectAsState()
+	val logsState = viewModel.logsState.collectAsStateWithLifecycle()
 	val logsCurrentValue = logsState.value
 
 	Box(Modifier.statusBarsPadding()) {
 		when (logsCurrentValue) {
 			is CompletableResult.Err -> {
-				Log.e(TAG, "error in getting logs ${logsCurrentValue.error}")
+				Timber.e(TAG, "error in getting logs ${logsCurrentValue.error}")
 				Toast.makeText(context, logsCurrentValue.error, Toast.LENGTH_LONG)
 					.show()
 				viewModel.resetValues()
@@ -51,14 +51,14 @@ fun LogsScreenFull(
 			is CompletableResult.Ok -> {
 				LogsScreen(
 					model = logsCurrentValue.result.toLogsScreenModel(context),
-					rootNavigator = rootNavigator,
+					coreNavController = navController,
 					onMenu = { menuNavController.navigate(LogsMenuSubgraph.logs_menu) },
 					onBack = { navController.popBackStack() },
 					onLogClicked = { logId -> navController.navigate(LogsSubgraph.logs_details + "/" + logId) },
 				)
 			}
 		}
-		LaunchedEffect(Unit) {
+		LaunchedEffect(viewModel) {
 			viewModel.updateLogsData()
 		}
 	}
@@ -70,7 +70,11 @@ fun LogsScreenFull(
 		val closeAction: Callback = {
 			menuNavController.popBackStack()
 		}
-		composable(LogsMenuSubgraph.logs_empty) {}//no menu
+		composable(LogsMenuSubgraph.logs_empty) {
+			//no menu - Spacer element so when other part shown there won't
+			// be an appearance animation from top left part despite there shouldn't be
+			Spacer(modifier = Modifier.fillMaxSize(1f))
+		}
 		composable(LogsMenuSubgraph.logs_menu) {
 			BottomSheetWrapperRoot(onClosedAction = closeAction) {
 				LogsMenuGeneral(

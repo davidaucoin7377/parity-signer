@@ -21,15 +21,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import io.parity.signer.R
-import io.parity.signer.components.ImageContent
+import io.parity.signer.components.base.NotificationFrameTextAlert
 import io.parity.signer.components.base.NotificationFrameTextImportant
-import io.parity.signer.components.base.ScreenHeader
-import io.parity.signer.components.base.SecondaryButtonWide
+import io.parity.signer.components.base.PrimaryButtonWide
+import io.parity.signer.components.base.ScreenHeaderClose
 import io.parity.signer.components.base.SignerDivider
 import io.parity.signer.components.qrcode.AnimatedQrKeysInfo
 import io.parity.signer.components.qrcode.EmptyAnimatedQrKeysProvider
 import io.parity.signer.components.qrcode.EmptyQrCodeProvider
-import io.parity.signer.components.toImageContent
 import io.parity.signer.domain.Callback
 import io.parity.signer.domain.KeyModel
 import io.parity.signer.domain.getData
@@ -42,22 +41,20 @@ import io.parity.signer.uniffi.DdDetail
 import io.parity.signer.uniffi.DdKeySet
 import io.parity.signer.uniffi.DdPreview
 import io.parity.signer.uniffi.QrData
-import io.parity.signer.uniffi.SignerImage
 
 @Composable
-fun AddDerivedKeysScreen(
+internal fun AddDerivedKeysScreen(
 	model: DdPreview,
 	modifier: Modifier = Modifier,
 	onBack: Callback,
 	onDone: Callback,
 ) {
 	BackHandler(onBack = onBack)
-
 	Column(
 		modifier = modifier.verticalScroll(rememberScrollState()),
 	) {
-		ScreenHeader(
-			onBack = onBack,
+		ScreenHeaderClose(
+			onClose = onBack,
 			title = null,
 			modifier = Modifier.padding(horizontal = 8.dp)
 		)
@@ -121,9 +118,9 @@ fun AddDerivedKeysScreen(
 			)
 		}
 
-		SecondaryButtonWide(
-			label = stringResource(R.string.transaction_action_done),
-			withBackground = true,
+		PrimaryButtonWide(
+			label = stringResource(R.string.generic_done),
+			isEnabled = model.keySet.derivations.isNotEmpty(),
 			modifier = Modifier.padding(horizontal = 24.dp, vertical = 32.dp),
 			onClicked = onDone,
 		)
@@ -132,6 +129,8 @@ fun AddDerivedKeysScreen(
 
 @Composable
 private fun KeysetItemDerivedItem(model: DdKeySet) {
+	if (model.derivations.isEmpty()) return //empty keyset - don't show whole section
+
 	Column(
 		modifier = Modifier
 			.padding(horizontal = 16.dp, vertical = 4.dp)
@@ -160,14 +159,13 @@ private fun KeysetItemDerivedItem(model: DdKeySet) {
 
 
 private fun DdDetail.toKeyModel() = KeyModel(
-	identicon = identicon.toImageContent(),
+	identicon = identicon,
 	addressKey = "",
 	seedName = "",
 	base58 = base58,
 	hasPwd = false,
 	path = path,
 	secretExposed = false,
-	wasImported = null
 )
 
 private fun ddPreviewcreateStub(): DdPreview = DdPreview(
@@ -185,16 +183,12 @@ private fun ddPreviewcreateStub(): DdPreview = DdPreview(
 	isSomeNetworkMissing = true,
 )
 
-@OptIn(ExperimentalUnsignedTypes::class)
 private fun ddDetailcreateStub(): DdDetail = DdDetail(
 	base58 = "5F3sa2TJAWMqDhXG6jhV4N8ko9SxwGy8TpaNS1repo5EYjQX",
 	path = "//polkadot//path2",
 	networkLogo = "westend",
 	networkSpecsKey = "sdfsdfgdfg",
-	identicon = SignerImage.Png(
-		(PreviewData.Identicon.exampleIdenticonPng as ImageContent.Png)
-			.image.toUByteArray().toList()
-	),
+	identicon = PreviewData.Identicon.dotIcon,
 )
 
 

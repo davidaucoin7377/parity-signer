@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -28,6 +29,7 @@ fun CloseIcon(
 	Box(
 		modifier = modifier
 			.size(32.dp)
+			.clip(CircleShape)
 			.clickable(onClick = onCloseClicked)
 			.run {
 				if (noBackground) {
@@ -35,7 +37,6 @@ fun CloseIcon(
 				} else {
 					background(
 						MaterialTheme.colors.fill18,
-						CircleShape
 					)
 				}
 			},
@@ -46,7 +47,7 @@ fun CloseIcon(
 			contentDescription = stringResource(R.string.description_close_button),
 			colorFilter = ColorFilter.tint(MaterialTheme.colors.primary),
 			modifier = Modifier
-				.size(24.dp)
+				.size(20.dp)
 		)
 	}
 }

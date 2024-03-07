@@ -38,7 +38,7 @@ struct RecoverKeySetNameView: View {
                     destination:
                     RecoverKeySetSeedPhraseView(
                         viewModel: .init(
-                            content: viewModel.detailsContent,
+                            seedName: viewModel.seedName,
                             isPresented: $viewModel.isPresented,
                             onCompletion: viewModel.onCompletion
                         )
@@ -47,9 +47,9 @@ struct RecoverKeySetNameView: View {
                     isActive: $viewModel.isPresentingDetails
                 ) { EmptyView() }
             }
-            .navigationViewStyle(StackNavigationViewStyle())
+            .navigationViewStyle(.stack)
             .navigationBarHidden(true)
-            .background(Asset.backgroundPrimary.swiftUIColor)
+            .background(.backgroundPrimary)
         }
     }
 
@@ -57,11 +57,11 @@ struct RecoverKeySetNameView: View {
     func mainContent() -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Localizable.RecoverSeedName.Label.title.text
-                .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                .foregroundColor(.textAndIconsPrimary)
                 .font(PrimaryFont.titleL.font)
                 .padding(.top, Spacing.extraSmall)
             Localizable.RecoverSeedName.Label.content.text
-                .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                .foregroundColor(.textAndIconsPrimary)
                 .font(PrimaryFont.bodyL.font)
                 .padding(.vertical, Spacing.extraSmall)
             TextField("", text: $viewModel.seedName)
@@ -77,11 +77,10 @@ struct RecoverKeySetNameView: View {
                 }
                 .onAppear {
                     nameFocused = true
-                    viewModel.onAppear()
                 }
                 .padding(.vertical, Spacing.medium)
             Localizable.RecoverSeedName.Label.footer.text
-                .foregroundColor(Asset.textAndIconsTertiary.swiftUIColor)
+                .foregroundColor(.textAndIconsTertiary)
                 .font(PrimaryFont.captionM.font)
             Spacer()
         }
@@ -92,27 +91,19 @@ struct RecoverKeySetNameView: View {
 extension RecoverKeySetNameView {
     final class ViewModel: ObservableObject {
         @Published var seedName: String = ""
-        private let service: RecoverKeySetService
         private let seedsMediator: SeedsMediating
         let onCompletion: (CreateKeysForNetworksView.OnCompletionAction) -> Void
         @Binding var isPresented: Bool
         @Published var isPresentingDetails: Bool = false
-        @Published var detailsContent: MRecoverSeedPhrase!
 
         init(
-            service: RecoverKeySetService = RecoverKeySetService(),
             seedsMediator: SeedsMediating = ServiceLocator.seedsMediator,
             isPresented: Binding<Bool>,
             onCompletion: @escaping (CreateKeysForNetworksView.OnCompletionAction) -> Void
         ) {
-            self.service = service
             self.seedsMediator = seedsMediator
             self.onCompletion = onCompletion
             _isPresented = isPresented
-        }
-
-        func onAppear() {
-            seedName = service.recoverKeySetStart().seedName
         }
 
         func onBackTap() {
@@ -120,7 +111,6 @@ extension RecoverKeySetNameView {
         }
 
         func onNextTap() {
-            detailsContent = service.continueKeySetRecovery(seedName)
             isPresentingDetails = true
         }
 

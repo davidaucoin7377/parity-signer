@@ -25,7 +25,7 @@ struct LogsListView: View {
                         title: .title(Localizable.LogsList.Label.title.string),
                         leftButtons: [.init(type: .arrow, action: { mode.wrappedValue.dismiss() })],
                         rightButtons: [.init(type: .more, action: viewModel.onMoreMenuTap)],
-                        backgroundColor: Asset.backgroundPrimary.swiftUIColor
+                        backgroundColor: .backgroundPrimary
                     )
                 )
                 ScrollView {
@@ -39,8 +39,7 @@ struct LogsListView: View {
                     }
                 }
             }
-            .background(Asset.backgroundPrimary.swiftUIColor)
-            ConnectivityAlertOverlay(viewModel: .init())
+            .background(.backgroundPrimary)
         }
         .onAppear {
             viewModel.loadData()
@@ -99,14 +98,18 @@ extension LogsListView {
         @Published var isPresentingDetails = false
         @Published var isPresentingError: Bool = false
         @Published var presentableError: ErrorBottomModalViewModel = .noNetworksAvailable()
-        private let logsService: LogsService
-        private let renderableBuilder: LogEntryRenderableBuilder
+        private let logsService: LogsServicing
+        private let devicePasscodeAuthenticator: DevicePasscodeAuthenticatorProtocol
+        private let renderableBuilder: LogEntryRenderableBuilding
 
         init(
-            logsService: LogsService = LogsService(),
-            renderableBuilder: LogEntryRenderableBuilder = LogEntryRenderableBuilder()
+            logsService: LogsServicing = LogsService(),
+            devicePasscodeAuthenticator: DevicePasscodeAuthenticatorProtocol = ServiceLocator
+                .devicePasscodeAuthenticator,
+            renderableBuilder: LogEntryRenderableBuilding = LogEntryRenderableBuilder()
         ) {
             self.logsService = logsService
+            self.devicePasscodeAuthenticator = devicePasscodeAuthenticator
             self.renderableBuilder = renderableBuilder
         }
 
@@ -116,10 +119,10 @@ extension LogsListView {
                 switch result {
                 case let .success(logs):
                     self.logs = logs
-                    self.renderables = self.renderableBuilder.build(logs)
+                    renderables = renderableBuilder.build(logs)
                 case let .failure(error):
-                    self.presentableError = .init(title: error.description)
-                    self.isPresentingError = true
+                    presentableError = .alertError(message: error.description)
+                    isPresentingError = true
                 }
             }
         }
@@ -145,12 +148,12 @@ extension LogsListView {
                 guard let self else { return }
                 switch result {
                 case let .success(logDetails):
-                    self.selectedDetails = logDetails
-                    self.isPresentingDetails = true
+                    selectedDetails = logDetails
+                    isPresentingDetails = true
                 case let .failure(error):
-                    self.selectedDetails = nil
-                    self.presentableError = .init(title: error.description)
-                    self.isPresentingError = true
+                    selectedDetails = nil
+                    presentableError = .alertError(message: error.description)
+                    isPresentingError = true
                 }
             }
         }
@@ -160,14 +163,15 @@ extension LogsListView {
         }
 
         func clearLogsAction() {
+            guard devicePasscodeAuthenticator.authenticateUser() else { return }
             logsService.cleaLogHistory { [weak self] result in
                 guard let self else { return }
                 switch result {
                 case .success:
-                    self.loadData()
+                    loadData()
                 case let .failure(error):
-                    self.presentableError = .init(title: error.description)
-                    self.isPresentingError = true
+                    presentableError = .alertError(message: error.description)
+                    isPresentingError = true
                 }
             }
         }

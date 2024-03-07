@@ -26,7 +26,7 @@ extension QRCodeAddressFooterViewModel {
 
 extension QRCodeRootFooterViewModel {
     static let stub: QRCodeRootFooterViewModel = .init(
-        keyName: "Staking",
+        identicon: .stubJdenticon,
         base58: "5F3sa2TJAWMqDhXG6jhV4N8ko9SxwGy8TpaNS1repo5EYjQX"
     )
 }
@@ -38,8 +38,8 @@ extension ExportPrivateKeyViewModel {
     )
 }
 
-extension KeyDetailsPublicKeyViewModel {
-    static let stub: KeyDetailsPublicKeyViewModel = .init(
+extension KeyDetailsPublicKeyViewRenderable {
+    static let stub: KeyDetailsPublicKeyViewRenderable = .init(
         qrCodes: [Stubs.stubQRCode],
         footer: .stub,
         isKeyExposed: false,
@@ -133,25 +133,11 @@ extension SettingsBackupViewModel {
 
 extension ExportMultipleKeysModalViewModel {
     static let stub: ExportMultipleKeysModalViewModel = .init(
+        keyName: "key",
         key: .stub,
         derivedKeys: [],
         count: 3
     )
-}
-
-extension KeySetViewModel {
-    static let stub: KeySetViewModel = .init(
-        seed: .stub,
-        keyName: "key name",
-        derivedKeys: nil,
-        identicon: .stubIdenticon,
-        networks: []
-    )
-
-    static let stubs: [KeySetViewModel] = [
-        .init(seed: .stub, keyName: "key name", derivedKeys: nil, identicon: .stubIdenticon, networks: []),
-        .init(seed: .stub, keyName: "key name", derivedKeys: nil, identicon: .stubIdenticon, networks: [])
-    ]
 }
 
 extension TransactionSummaryModel {

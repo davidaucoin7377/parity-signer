@@ -1,6 +1,6 @@
 package io.parity.signer.screens.scan.camera
 
-import android.util.Log
+import timber.log.Timber
 import android.util.Rational
 import android.util.Size
 import android.view.ViewGroup
@@ -28,8 +28,9 @@ import java.util.concurrent.TimeUnit
 internal fun CameraViewInternal(viewModel: CameraViewModel) {
 	val lifecycleOwner = LocalLifecycleOwner.current
 	val context = LocalContext.current
-	val cameraProviderFuture =
-		remember { ProcessCameraProvider.getInstance(context) }
+	val cameraProviderFuture = remember {
+		ProcessCameraProvider.getInstance(context)
+	}
 	val coroutineScope = rememberCoroutineScope()
 	val configuration = LocalConfiguration.current
 	val backgroundExecutor = remember {
@@ -119,7 +120,7 @@ internal fun CameraViewInternal(viewModel: CameraViewModel) {
 						}.build()
 						camera.cameraControl.startFocusAndMetering(autoFocusAction)
 					} catch (e: CameraInfoUnavailableException) {
-						Log.d("ERROR", "cannot access camera", e)
+						Timber.d("ERROR", "cannot access camera", e)
 					}
 				}
 			}, executor)

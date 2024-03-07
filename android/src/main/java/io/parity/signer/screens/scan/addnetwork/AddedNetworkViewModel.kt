@@ -9,7 +9,7 @@ import io.parity.signer.domain.storage.SeedRepository
 import io.parity.signer.domain.submitErrorState
 import io.parity.signer.domain.toNetworkModel
 import io.parity.signer.uniffi.ErrorDisplayed
-import io.parity.signer.uniffi.getAllNetworks
+import io.parity.signer.uniffi.getManagedNetworks
 import io.parity.signer.uniffi.tryCreateAddress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -28,7 +28,7 @@ class AddedNetworkViewModel : ViewModel() {
 	suspend fun getNetworkByName(name: String): NetworkModel? {
 		return try {
 			withContext(viewModelScope.coroutineContext + Dispatchers.IO) {
-				getAllNetworks().firstOrNull { it.title.lowercase() == name.lowercase() }
+				getManagedNetworks().networks.firstOrNull { it.title.lowercase() == name.lowercase() }
 					?.toNetworkModel()
 			}
 		} catch (e: Exception) {
@@ -57,6 +57,7 @@ class AddedNetworkViewModel : ViewModel() {
 							seedName = seedPair.first, seedPhrase = seedPair.second,
 							path = network.pathId, network = network.key,
 						)
+						System.gc()
 					} catch (e: ErrorDisplayed) {
 						result = false
 						submitErrorState("can't create network key for added network, ${e.message}")

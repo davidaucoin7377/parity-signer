@@ -27,11 +27,6 @@ final class CameraService: ObservableObject {
         case configurationFailed
     }
 
-    /// QR codes payloads for multiple transactions
-    @Published var multipleTransactions: [String] = []
-    /// Informs whether camera service should handle individual QR code batch scanning
-    @Published var isMultipleTransactionMode: Bool = false
-
     /// QR code payload decoded by Rust
     @Published var payload: DecodedPayload?
     /// Number of expected frames for given payload
@@ -43,7 +38,7 @@ final class CameraService: ObservableObject {
     @Published var requestPassword: Bool = false
 
     /// Partial payload to decode, collection of payloads from individual QR codes
-    @Published var bucket: [String] = []
+    private(set) var bucket: [String] = []
 
     let session: AVCaptureSession
     private var isConfigured = false
@@ -72,9 +67,9 @@ final class CameraService: ObservableObject {
 
     func configure() {
         cameraPermissionHandler.checkForPermissions { [weak self] isGranted in
-            guard let self = self else { return }
-            self.setupResult = isGranted ? .success : .notAuthorized
-            self.sessionQueue.async(execute: self.configureSession)
+            guard let self else { return }
+            setupResult = isGranted ? .success : .notAuthorized
+            sessionQueue.async(execute: configureSession)
         }
     }
 
@@ -107,10 +102,6 @@ extension CameraService: QRPayloadUpdateReceiving {
 
 private extension CameraService {
     func handleNew(qrCodePayload: String) {
-        if isMultipleTransactionMode {
-//            multiTransactionOperation(with: qrCodePayload)
-            return
-        }
         if bucket.isEmpty {
             handleNewOperation(with: qrCodePayload)
         } else {
@@ -118,31 +109,19 @@ private extension CameraService {
         }
     }
 
-//    func multiTransactionOperation(with qrCodePayload: String) {
-//        guard let parsedPayload = try? qrparserTryDecodeQrSequence(data: [qrCodePayload], password: nil, cleaned:
-//        false)
-//        else { return }
-//        callbackQueue.async {
-//            guard !self.multipleTransactions.contains(parsedPayload) else { return }
-//            self.multipleTransactions.append(parsedPayload)
-//        }
-//    }
-
     func handleNewOperation(with qrCodePayload: String) {
-        do {
-            let proposedTotalFrames = try Int(qrparserGetPacketsTotal(data: qrCodePayload, cleaned: false))
-            switch proposedTotalFrames {
-            case 1:
-                decode(completeOperationPayload: [qrCodePayload])
-            default:
-                callbackQueue.async {
-                    self.bucket.append(qrCodePayload)
-                    self.captured = self.bucket.count
-                    self.total = proposedTotalFrames
-                }
+        guard let proposedTotalFrames = try? Int(qrparserGetPacketsTotal(data: qrCodePayload, cleaned: false)) else {
+            return
+        }
+        switch proposedTotalFrames {
+        case 1:
+            decode(completeOperationPayload: [qrCodePayload])
+        default:
+            callbackQueue.async {
+                self.bucket.append(qrCodePayload)
+                self.captured = self.bucket.count
+                self.total = proposedTotalFrames
             }
-        } catch {
-            // reset camera on failure?
         }
     }
 
@@ -157,31 +136,34 @@ private extension CameraService {
     }
 
     func decode(completeOperationPayload: [String]) {
-        do {
-            let result = try qrparserTryDecodeQrSequence(data: completeOperationPayload, password: nil, cleaned: false)
-            callbackQueue.async {
-                switch result {
-                case let .bBananaSplitRecoveryResult(b: bananaResult):
-                    switch bananaResult {
-                    case .requestPassword:
-                        self.requestPassword = true
-                        self.shutdown()
-                    case .recoveredSeed:
-                        () // Invalid code path, BS can't be recovered without a password
-                    }
-                case let .dynamicDerivations(s: payload):
-                    self.payload = .init(payload: [payload], type: .dynamicDerivations)
+        guard let result = try? qrparserTryDecodeQrSequence(
+            data: completeOperationPayload,
+            password: nil,
+            cleaned: false
+        ) else {
+            bucket = []
+            return
+        }
+        callbackQueue.async {
+            switch result {
+            case let .bBananaSplitRecoveryResult(b: bananaResult):
+                switch bananaResult {
+                case .requestPassword:
+                    self.requestPassword = true
                     self.shutdown()
-                case let .other(s: payload):
-                    self.payload = .init(payload: [payload], type: .transaction)
-                    self.shutdown()
-                case let .dynamicDerivationTransaction(s: payload):
-                    self.payload = .init(payload: payload, type: .dynamicDerivationsTransaction)
-                    self.shutdown()
+                case .recoveredSeed:
+                    () // Invalid code path, BS can't be recovered without a password
                 }
+            case let .dynamicDerivations(s: payload):
+                self.payload = .init(payload: [payload], type: .dynamicDerivations)
+                self.shutdown()
+            case let .other(s: payload):
+                self.payload = .init(payload: [payload], type: .transaction)
+                self.shutdown()
+            case let .dynamicDerivationTransaction(s: payload):
+                self.payload = .init(payload: payload, type: .dynamicDerivationsTransaction)
+                self.shutdown()
             }
-        } catch {
-            print(error.localizedDescription)
         }
     }
 }

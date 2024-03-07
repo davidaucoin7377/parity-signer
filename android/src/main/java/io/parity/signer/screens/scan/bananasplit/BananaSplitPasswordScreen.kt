@@ -16,7 +16,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -24,6 +23,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.parity.signer.R
 import io.parity.signer.components.base.ScreenHeaderWithButton
 import io.parity.signer.domain.Callback
@@ -38,10 +38,10 @@ fun BananaSplitPasswordScreen(
 	modifier: Modifier = Modifier,
 ) {
 
-	val name = bananaViewModel.seedName.collectAsState()
-	val password = bananaViewModel.password.collectAsState()
-	val nameCollision = bananaViewModel.seedCollision.collectAsState()
-	val wrongPassword = bananaViewModel.wrongPasswordCurrent.collectAsState()
+	val name = bananaViewModel.seedName.collectAsStateWithLifecycle()
+	val password = bananaViewModel.password.collectAsStateWithLifecycle()
+	val nameCollision = bananaViewModel.seedCollision.collectAsStateWithLifecycle()
+	val wrongPassword = bananaViewModel.wrongPasswordCurrent.collectAsStateWithLifecycle()
 
 
 	BananaSplitPasswordInternal(
@@ -70,7 +70,6 @@ private fun BananaSplitPasswordInternal(
 	modifier: Modifier = Modifier,
 ) {
 
-	val focusManager = LocalFocusManager.current
 	val pathFocusRequester = remember { FocusRequester() }
 	val passwordFocusRequester = remember { FocusRequester() }
 
@@ -78,11 +77,6 @@ private fun BananaSplitPasswordInternal(
 		&& !nameCollision.value && !wrongPassword.value
 
 	var passwordVisible by remember { mutableStateOf(false) }
-
-	DisposableEffect(Unit) {
-		pathFocusRequester.requestFocus()
-		onDispose { focusManager.clearFocus() }
-	}
 
 	Column(
 		modifier
@@ -207,6 +201,10 @@ private fun BananaSplitPasswordInternal(
 			}
 			Spacer(modifier = Modifier.padding(bottom = 24.dp))
 		}
+	}
+
+	LaunchedEffect(Unit) {
+		pathFocusRequester.requestFocus()
 	}
 }
 

@@ -13,12 +13,12 @@ jobs:
     runs-on:            ubuntu-22.04
     steps:
       - name:           Cancel Previous Runs
-        uses:           styfle/cancel-workflow-action@b173b6ec0100793626c2d9e6b90435061f4fc3e5 # 0.11.0
+        uses:           styfle/cancel-workflow-action@85880fa0301c86cca9da44039ee3bb12d3bedbfa # 0.12.1
         with:
           access_token: ${{ github.token }}
 
       - name:           Checkout Sources
-        uses:           actions/checkout@v3.5.3
+        uses:           actions/checkout@v4.1.1
         with:
           fetch-depth:  50
           submodules:   'recursive'
@@ -29,11 +29,7 @@ jobs:
           sudo apt-get install -y clang libclang-dev libopencv-dev
 
       - name:           Install Rust stable toolchain
-        uses:           actions-rs/toolchain@v1
-        with:
-          profile:      minimal
-          toolchain:    stable
-          override:     true
+        uses:           dtolnay/rust-toolchain@stable
 
       - name:                 Install uniffi_bindgen
         uses:                 actions-rs/install@v0.1
@@ -46,16 +42,16 @@ jobs:
         run:            rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 
       - name:           Set up JDK environment
-        uses:           actions/setup-java@v3
+        uses:           actions/setup-java@v4
         with:
           distribution: 'adopt'
           java-version: 17
 
       - name:           Install NDK
-        run:            echo "y" | sudo ${ANDROID_HOME}/tools/bin/sdkmanager --install "ndk;24.0.8215888" --sdk_root=${ANDROID_SDK_ROOT}
+        run:            echo "y" | sudo ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --install "ndk;24.0.8215888" --sdk_root=${ANDROID_SDK_ROOT}
 
       - name:           Rust Cache
-        uses:           Swatinem/rust-cache@578b235f6e5f613f7727f1c17bd3305b4d4d4e1f # v2.6.1
+        uses:           Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84 # v2.7.3
         with:
           workspaces:   rust -> rust/target
 
@@ -79,12 +75,12 @@ jobs:
     # if: github.ref == ' refs/head/main'
     steps:
       - name:           Cancel Previous Runs
-        uses:           styfle/cancel-workflow-action@b173b6ec0100793626c2d9e6b90435061f4fc3e5 # 0.11.0
+        uses:           styfle/cancel-workflow-action@85880fa0301c86cca9da44039ee3bb12d3bedbfa # 0.12.1
         with:
           access_token: ${{ github.token }}
 
       - name:           Checkout Sources
-        uses:           actions/checkout@v3.5.3
+        uses:           actions/checkout@v4.1.1
         with:
           fetch-depth:  50
           submodules:   'recursive'
@@ -96,11 +92,7 @@ jobs:
           sudo apt-get install -y clang libclang-dev libopencv-dev
 
       - name:           Install Rust stable toolchain
-        uses:           actions-rs/toolchain@v1
-        with:
-          profile:      minimal
-          toolchain:    stable
-          override:     true
+        uses:           dtolnay/rust-toolchain@stable
 
       - name:                 Install uniffi_bindgen
         uses:                 actions-rs/install@v0.1
@@ -113,16 +105,16 @@ jobs:
         run:            rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 
       - name:           Set up JDK environment
-        uses:           actions/setup-java@v3
+        uses:           actions/setup-java@v4
         with:
           distribution: 'adopt'
           java-version: 17
 
       - name:           Install NDK
-        run:            echo "y" | sudo ${ANDROID_HOME}/tools/bin/sdkmanager --install "ndk;24.0.8215888" --sdk_root=${ANDROID_SDK_ROOT}
+        run:            echo "y" | sudo ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --install "ndk;24.0.8215888" --sdk_root=${ANDROID_SDK_ROOT}
 
       - name:           Rust Cache
-        uses:           Swatinem/rust-cache@578b235f6e5f613f7727f1c17bd3305b4d4d4e1f # v2.6.1
+        uses:           Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84 # v2.7.3
         with:
           workspaces:   rust -> rust/target
 

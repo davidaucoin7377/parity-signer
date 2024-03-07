@@ -7,8 +7,8 @@
 
 import SwiftUI
 
-struct ErrorBottomModalViewModel {
-    struct Step {
+struct ErrorBottomModalViewModel: Equatable {
+    struct Step: Equatable {
         let step: String
         let content: AttributedString
     }
@@ -77,18 +77,6 @@ struct ErrorBottomModalViewModel {
         )
     }
 
-    static func importDynamicDerivedKeys(content: String, _ action: @escaping @autoclosure () -> Void = {}())
-        -> ErrorBottomModalViewModel {
-        ErrorBottomModalViewModel(
-            title: Localizable.AddDerivedKeys.Error.DerivedKeyForNetwork.title.string,
-            content: content,
-            secondaryAction: .init(
-                label: Localizable.ImportKeys.ErrorModal.MissingKeySets.Action.ok.key,
-                action: action
-            )
-        )
-    }
-
     static func importDerivedKeysBadFormat(_ action: @escaping @autoclosure () -> Void = {}())
         -> ErrorBottomModalViewModel {
         ErrorBottomModalViewModel(
@@ -116,28 +104,6 @@ struct ErrorBottomModalViewModel {
             content: Localizable.GenericErrorModal.Label.messagePrefix.string,
             details: message,
             secondaryAction: .init(label: Localizable.GenericErrorModal.Action.ok.key, action: action)
-        )
-    }
-
-    static func connectivityOn(_ action: @escaping @autoclosure () -> Void = {}()) -> ErrorBottomModalViewModel {
-        ErrorBottomModalViewModel(
-            icon: Asset.wifiOn.swiftUIImage,
-            title: Localizable.Connectivity.Label.title.string,
-            content: Localizable.Connectivity.Label.content.string,
-            secondaryAction: .init(label: Localizable.ErrorModal.Action.ok.key, action: action)
-        )
-    }
-
-    static func connectivityWasOn(
-        backAction: @escaping @autoclosure () -> Void = {}(),
-        continueAction: @escaping @autoclosure () -> Void
-    ) -> ErrorBottomModalViewModel {
-        ErrorBottomModalViewModel(
-            icon: Asset.wifiWasOn.swiftUIImage,
-            title: Localizable.PastConnectivity.Label.title.string,
-            content: Localizable.PastConnectivity.Label.content.string,
-            primaryAction: .init(label: Localizable.PastConnectivity.Action.back.key, action: backAction),
-            tertiaryAction: .init(label: Localizable.PastConnectivity.Action.continue.key, action: continueAction)
         )
     }
 
@@ -186,6 +152,16 @@ struct ErrorBottomModalViewModel {
         ErrorBottomModalViewModel(
             title: Localizable.RecoverSeedPhrase.Error.IncorrectPhrase.title.string,
             content: Localizable.RecoverSeedPhrase.Error.IncorrectPhrase.message.string,
+            secondaryAction: .init(label: Localizable.ErrorModal.Action.ok.key, action: action)
+        )
+    }
+
+    static func featureNotAvailable(
+        _ action: @escaping @autoclosure () -> Void = {}()
+    ) -> ErrorBottomModalViewModel {
+        ErrorBottomModalViewModel(
+            title: Localizable.Error.FeatureNotAvailable.title.string,
+            content: Localizable.Error.FeatureNotAvailable.message.string,
             secondaryAction: .init(label: Localizable.ErrorModal.Action.ok.key, action: action)
         )
     }

@@ -23,7 +23,7 @@ struct NetworkSettingsDetails: View {
                         }
                     )],
                     rightButtons: [.init(type: .more, action: viewModel.onMoreMenuTap)],
-                    backgroundColor: Asset.backgroundPrimary.swiftUIColor
+                    backgroundColor: .backgroundPrimary
                 )
             )
             ScrollView(showsIndicators: false) {
@@ -33,7 +33,7 @@ struct NetworkSettingsDetails: View {
                             .padding(.bottom, Spacing.small)
                         Text(viewModel.networkDetails.name.capitalized)
                             .font(PrimaryFont.titleM.font)
-                            .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                            .foregroundColor(.textAndIconsPrimary)
                             .padding(.bottom, Spacing.large)
                         HStack {
                             Spacer()
@@ -42,7 +42,7 @@ struct NetworkSettingsDetails: View {
                     // Network Specs
                     Localizable.Settings.NetworkDetails.Label.specs.text
                         .font(PrimaryFont.bodyL.font)
-                        .foregroundColor(Asset.textAndIconsSecondary.swiftUIColor)
+                        .foregroundColor(.textAndIconsSecondary)
                         .padding(.leading, Spacing.large)
                         .padding(.bottom, Spacing.extraSmall)
                     networkSpecs()
@@ -53,7 +53,7 @@ struct NetworkSettingsDetails: View {
                     if !viewModel.networkDetails.meta.isEmpty {
                         Localizable.Settings.NetworkDetails.Label.metadata.text
                             .font(PrimaryFont.bodyL.font)
-                            .foregroundColor(Asset.textAndIconsSecondary.swiftUIColor)
+                            .foregroundColor(.textAndIconsSecondary)
                             .padding(.top, Spacing.large)
                             .padding(.leading, Spacing.large)
                             .padding(.bottom, Spacing.extraSmall)
@@ -65,13 +65,13 @@ struct NetworkSettingsDetails: View {
                         }
                     }
                     HStack(alignment: .center, spacing: 0) {
-                        Asset.add.swiftUIImage
-                            .foregroundColor(Asset.textAndIconsSecondary.swiftUIColor)
+                        Image(.addLarge)
+                            .foregroundColor(.textAndIconsSecondary)
                             .frame(width: Heights.networkLogoInCell, height: Heights.networkLogoInCell)
-                            .background(Circle().foregroundColor(Asset.accentPink12.swiftUIColor))
+                            .background(Circle().foregroundColor(.accentPink12))
                             .padding(.trailing, Spacing.small)
                         Text(Localizable.Settings.NetworkDetails.Action.add.string)
-                            .foregroundColor(Asset.accentPink.swiftUIColor)
+                            .foregroundColor(.accentPink)
                             .font(PrimaryFont.labelL.font)
                         Spacer()
                     }
@@ -89,14 +89,15 @@ struct NetworkSettingsDetails: View {
                     destination: SignSpecsListView(
                         viewModel: .init(
                             networkKey: viewModel.networkKey,
-                            content: viewModel.signSpecList
+                            type: viewModel.specSignType
                         )
                     )
                     .navigationBarHidden(true),
                     isActive: $viewModel.isPresentingSignSpecList
                 ) { EmptyView() }
             }
-            .background(Asset.backgroundPrimary.swiftUIColor)
+            .background(.backgroundPrimary)
+            .onAppear { viewModel.onAppear() }
             .onReceive(viewModel.dismissViewRequest) { _ in
                 presentationMode.wrappedValue.dismiss()
             }
@@ -127,9 +128,11 @@ struct NetworkSettingsDetails: View {
                 }
             ) {
                 NetworkSettingsDetailsActionModal(
-                    isShowingActionSheet: $viewModel.isShowingActionSheet,
-                    shouldPresentRemoveNetworkConfirmation: $viewModel.shouldPresentRemoveNetworkConfirmation,
-                    shouldSignSpecs: $viewModel.shouldSignSpecs
+                    viewModel: .init(
+                        isPresented: $viewModel.isShowingActionSheet,
+                        shouldPresentRemoveNetworkConfirmation: $viewModel.shouldPresentRemoveNetworkConfirmation,
+                        shouldSignSpecs: $viewModel.shouldSignSpecs
+                    )
                 )
                 .clearModalBackground()
             }
@@ -142,6 +145,15 @@ struct NetworkSettingsDetails: View {
                         isPresented: $viewModel.isShowingQRScanner
                     )
                 )
+            }
+            .fullScreenModal(
+                isPresented: $viewModel.isPresentingError
+            ) {
+                ErrorBottomModal(
+                    viewModel: viewModel.presentableError,
+                    isShowingBottomAlert: $viewModel.isPresentingError
+                )
+                .clearModalBackground()
             }
             .bottomSnackbar(
                 viewModel.snackbarViewModel,
@@ -206,10 +218,10 @@ private extension NetworkSettingsDetails {
             )
             HStack {
                 Localizable.Settings.NetworkDetails.Action.sign.text
-                    .foregroundColor(Asset.accentPink300.swiftUIColor)
+                    .foregroundColor(.accentPink300)
                 Spacer()
-                Asset.chevronRight.swiftUIImage
-                    .foregroundColor(Asset.textAndIconsDisabled.swiftUIColor)
+                Image(.chevronRight)
+                    .foregroundColor(.textAndIconsDisabled)
                     .padding(.trailing, Spacing.extraSmall)
             }
             .contentShape(Rectangle())
@@ -219,7 +231,7 @@ private extension NetworkSettingsDetails {
             Divider()
             HStack {
                 Localizable.Settings.NetworkDetails.Action.delete.text
-                    .foregroundColor(Asset.accentRed300.swiftUIColor)
+                    .foregroundColor(.accentRed300)
                 Spacer()
             }
             .contentShape(Rectangle())
@@ -240,10 +252,10 @@ private extension NetworkSettingsDetails {
     ) -> some View {
         HStack {
             Text(key)
-                .foregroundColor(Asset.textAndIconsTertiary.swiftUIColor)
+                .foregroundColor(.textAndIconsTertiary)
             Spacer()
             Text(value)
-                .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                .foregroundColor(.textAndIconsPrimary)
         }
         if !isLast {
             Divider()
@@ -258,9 +270,9 @@ private extension NetworkSettingsDetails {
     ) -> some View {
         VStack(alignment: .leading, spacing: Spacing.extraSmall) {
             Text(key)
-                .foregroundColor(Asset.textAndIconsTertiary.swiftUIColor)
+                .foregroundColor(.textAndIconsTertiary)
             Text(value)
-                .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                .foregroundColor(.textAndIconsPrimary)
             if !isLast {
                 Divider()
             }
@@ -294,9 +306,9 @@ private extension NetworkSettingsDetails {
         )
         HStack {
             Localizable.Settings.NetworkDetails.Label.Verifier.identicon.text
-                .foregroundColor(Asset.textAndIconsTertiary.swiftUIColor)
+                .foregroundColor(.textAndIconsTertiary)
             Spacer()
-            Identicon(identicon: verifier.details.identicon)
+            IdenticonView(identicon: verifier.details.identicon)
         }
         Divider()
         verticalRowWrapper(
@@ -318,13 +330,13 @@ extension NetworkSettingsDetails {
 
     final class ViewModel: ObservableObject {
         private let cancelBag = CancelBag()
-        private let networkDetailsService: ManageNetworkDetailsService
-        let networkKey: String
+        private let networkDetailsService: ManageNetworkDetailsServicing
         private var metadataToDelete: MMetadataRecord?
-
         var dismissViewRequest: AnyPublisher<Void, Never> { dismissRequest.eraseToAnyPublisher() }
         private let dismissRequest = PassthroughSubject<Void, Never>()
         private let onCompletion: (OnCompletionAction) -> Void
+
+        let networkKey: String
         @Published var isPresentingRemoveMetadataConfirmation = false
         @Published var networkDetails: MNetworkDetails
         @Published var shouldSignSpecs = false
@@ -332,38 +344,55 @@ extension NetworkSettingsDetails {
         @Published var shouldPresentRemoveNetworkConfirmation = false
         @Published var isPresentingRemoveNetworkConfirmation = false
 
-        @Published var signSpecList: MSignSufficientCrypto!
+        @Published var specSignType: SpecSignType!
         @Published var isPresentingSignSpecList: Bool = false
         @Published var isShowingQRScanner: Bool = false
-        var snackbarViewModel: SnackbarViewModel = .init(title: "")
+        @Published var snackbarViewModel: SnackbarViewModel = .init(title: "")
         @Published var isSnackbarPresented: Bool = false
+        @Published var isPresentingError: Bool = false
+        @Published var presentableError: ErrorBottomModalViewModel = .alertError(message: "")
 
         init(
             networkKey: String,
             networkDetails: MNetworkDetails,
-            networkDetailsService: ManageNetworkDetailsService = ManageNetworkDetailsService(),
+            networkDetailsService: ManageNetworkDetailsServicing = ManageNetworkDetailsService(),
             onCompletion: @escaping (OnCompletionAction) -> Void
         ) {
             self.networkKey = networkKey
+            _networkDetails = .init(initialValue: networkDetails)
             self.networkDetailsService = networkDetailsService
             self.onCompletion = onCompletion
-            _networkDetails = .init(initialValue: networkDetails)
             listenToNavigationUpdates()
+        }
+
+        func onAppear() {
+            updateView()
         }
 
         func removeMetadata() {
             isPresentingRemoveMetadataConfirmation = false
-            networkDetails = networkDetailsService.deleteNetworkMetadata(
+            networkDetailsService.deleteNetworkMetadata(
                 networkKey,
                 metadataToDelete?.specsVersion ?? ""
-            )
-            snackbarViewModel = .init(
-                title: Localizable.Settings.NetworkDetails.DeleteMetadata.Label
-                    .confirmation(metadataToDelete?.specsVersion ?? ""),
-                style: .warning
-            )
-            isSnackbarPresented = true
-            metadataToDelete = nil
+            ) { result in
+                switch result {
+                case .success:
+                    guard let metadataToDelete = self.metadataToDelete else { return }
+                    self.snackbarViewModel = .init(
+                        title: Localizable.Settings.NetworkDetails.DeleteMetadata.Label
+                            .confirmation(metadataToDelete.specsVersion),
+                        style: .warning
+                    )
+                    self.isSnackbarPresented = true
+                    if let indexOfDeletedMetadata = self.networkDetails.meta.firstIndex(of: metadataToDelete) {
+                        self.networkDetails.meta.remove(at: indexOfDeletedMetadata)
+                    }
+                case let .failure(error):
+                    self.presentableError = .alertError(message: error.localizedDescription)
+                    self.isPresentingError = true
+                }
+                self.metadataToDelete = nil
+            }
         }
 
         func onAddTap() {
@@ -380,7 +409,7 @@ extension NetworkSettingsDetails {
         }
 
         func didTapSign(_ metadata: MMetadataRecord) {
-            signSpecList = networkDetailsService.signMetadataSpecList(networkKey, metadata.specsVersion)
+            specSignType = .metadata(metadataSpecsVersion: metadata.specsVersion)
             isPresentingSignSpecList = true
         }
 
@@ -395,7 +424,7 @@ extension NetworkSettingsDetails {
 
         func onMoreActionSheetDismissal() {
             if shouldSignSpecs {
-                signSpecList = networkDetailsService.signSpecList(networkKey)
+                specSignType = .network
                 shouldSignSpecs = false
                 isPresentingSignSpecList = true
             }
@@ -406,29 +435,46 @@ extension NetworkSettingsDetails {
         }
 
         func removeNetwork() {
-            networkDetailsService.deleteNetwork(networkKey)
-            dismissRequest.send()
-            onCompletion(.networkDeleted(networkDetails.title))
+            networkDetailsService.deleteNetwork(networkKey) { result in
+                switch result {
+                case .success:
+                    self.dismissRequest.send()
+                    self.onCompletion(.networkDeleted(self.networkDetails.title))
+                case let .failure(error):
+                    self.presentableError = .alertError(message: error.localizedDescription)
+                    self.isPresentingError = true
+                }
+            }
         }
 
         func cancelNetworkRemoval() {
             isPresentingRemoveNetworkConfirmation = false
         }
+    }
+}
 
-        private func updateView() {
-            guard let updatedNetworkDetails = networkDetailsService.refreshCurrentNavigationState(networkKey)
-            else { return }
-            networkDetails = updatedNetworkDetails
+private extension NetworkSettingsDetails.ViewModel {
+    func updateView() {
+        networkDetailsService.getNetworkDetails(networkKey) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case let .success(updatedNetworkDetails):
+                networkDetails = updatedNetworkDetails
+            case let .failure(error):
+                presentableError = .alertError(message: error.localizedDescription)
+                isPresentingError = true
+            }
         }
+    }
 
-        private func listenToNavigationUpdates() {
-            guard cancelBag.subscriptions.isEmpty else { return }
-            $isPresentingSignSpecList.sink { [weak self] isPresentingSignSpecList in
-                guard let self = self, !isPresentingSignSpecList else { return }
-                self.signSpecList = nil
-                self.updateView()
+    func listenToNavigationUpdates() {
+        guard cancelBag.subscriptions.isEmpty else { return }
+        $isPresentingSignSpecList
+            .dropFirst()
+            .sink { [weak self] isPresentingSignSpecList in
+                guard let self, !isPresentingSignSpecList else { return }
+                updateView()
             }.store(in: cancelBag)
-        }
     }
 }
 

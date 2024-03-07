@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct QRCodeAddressFooterViewModel: Equatable {
-    let identicon: SignerImage
+    let identicon: Identicon
     let networkLogo: String
     let base58: String
 }
@@ -33,12 +33,12 @@ struct QRCodeAddressFooterView: View {
             HStack(alignment: .center, spacing: Spacing.extraExtraSmall) {
                 Group {
                     Text(showFullAddress ? viewModel.base58 : viewModel.base58.truncateMiddle())
-                        .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                        .foregroundColor(.textAndIconsPrimary)
                         .font(PrimaryFont.bodyL.font)
                         .frame(idealWidth: .infinity, alignment: .leading)
                     if !showFullAddress {
-                        Asset.chevronDown.swiftUIImage
-                            .foregroundColor(Asset.textAndIconsSecondary.swiftUIColor)
+                        Image(.chevronDown)
+                            .foregroundColor(.textAndIconsSecondary)
                             .padding(.leading, Spacing.extraExtraSmall)
                     }
                 }
@@ -68,17 +68,17 @@ struct QRCodeAddressFooterView: View {
                 Spacer()
                 QRCodeAddressFooterView(
                     viewModel: .stub,
-                    backgroundColor: Asset.fill6Solid.swiftUIColor
+                    backgroundColor: .fill6Solid
                 )
                 Spacer()
                 QRCodeAddressFooterView(
                     viewModel: .stub,
-                    backgroundColor: Asset.fill12.swiftUIColor
+                    backgroundColor: .fill12
                 )
                 Spacer()
                 QRCodeAddressFooterView(
                     viewModel: .stub,
-                    backgroundColor: Asset.backgroundSecondary.swiftUIColor
+                    backgroundColor: .backgroundSecondary
                 )
                 Spacer()
             }

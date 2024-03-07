@@ -9,13 +9,34 @@ import Combine
 import Foundation
 import UIKit
 
+// sourcery: AutoMockable
+protocol DeviceProtocol: AnyObject {
+    var isSimulator: Bool { get }
+}
+
 final class JailbreakDetectionPublisher: ObservableObject {
     @Published var isJailbroken = false
 
     private let cancelBag = CancelBag()
+    private let device: DeviceProtocol
+    private let runtimePropertiesProvider: RuntimePropertiesProviding
+    private let fileManager: FileManagingProtocol
+    private let urlOpener: URLOpening
+    private let processInfo: ProcessInfoProtocol
 
-    init() {
-        guard !RuntimePropertiesProvider().isInDevelopmentMode else { return }
+    init(
+        runtimePropertiesProvider: RuntimePropertiesProviding = RuntimePropertiesProvider(),
+        device: DeviceProtocol = UIDevice.current,
+        fileManager: FileManagingProtocol = FileManager.default,
+        urlOpener: URLOpening = UIApplication.shared,
+        processInfo: ProcessInfoProtocol = ProcessInfo.processInfo
+    ) {
+        self.runtimePropertiesProvider = runtimePropertiesProvider
+        self.device = device
+        self.fileManager = fileManager
+        self.urlOpener = urlOpener
+        self.processInfo = processInfo
+        guard runtimePropertiesProvider.runtimeMode == .production else { return }
         NotificationCenter.default
             .publisher(for: UIApplication.didBecomeActiveNotification)
             .map { _ in self.detectJailbreak() }
@@ -23,7 +44,9 @@ final class JailbreakDetectionPublisher: ObservableObject {
             .sink { self.isJailbroken = $0 }
             .store(in: cancelBag)
     }
+}
 
+private extension JailbreakDetectionPublisher {
     func detectJailbreak() -> AnyPublisher<Bool, Never> {
         Future { promise in
             let isJailbroken = [
@@ -32,41 +55,41 @@ final class JailbreakDetectionPublisher: ObservableObject {
                 self.checkSystemModifications(),
                 self.checkEnvironmentVariables()
             ].contains(true)
-            promise(.success(isJailbroken && !UIDevice.current.isSimulator))
+            promise(.success(isJailbroken || self.device.isSimulator))
         }.eraseToAnyPublisher()
     }
 
-    private func checkJailbreakFilesAndDirectories() -> Bool {
+    func checkJailbreakFilesAndDirectories() -> Bool {
         Constants.jailbreakApplicationPaths
-            .contains { FileManager.default.fileExists(atPath: $0) }
+            .contains { self.fileManager.fileExists(atPath: $0) }
     }
 
-    private func checkSystemModifications() -> Bool {
+    func checkSystemModifications() -> Bool {
         Constants.inaccessibleSystemPaths
-            .contains { FileManager.default.fileExists(atPath: $0) }
+            .contains { self.fileManager.fileExists(atPath: $0) }
     }
 
-    private func checkJailbreakTools() -> Bool {
+    func checkJailbreakTools() -> Bool {
         let jailbreakTools = [
             Constants.jailbreakToolCydia,
             Constants.jailbreakToolIcy,
             Constants.jailbreakToolInstaller
         ]
         // swiftlint: disable:next force_unwrapping
-        return jailbreakTools.contains { UIApplication.shared.canOpenURL($0!) }
+        return jailbreakTools.contains { self.urlOpener.canOpenURL($0!) }
     }
 
-    private func checkEnvironmentVariables() -> Bool {
+    func checkEnvironmentVariables() -> Bool {
         let environmentVariables = [
             Constants.environmentVariableDyldInsertLibraries,
             Constants.environmentVariableDyldPrintToFile,
             Constants.environmentVariableDyldPrintOpts
         ]
-        return environmentVariables.contains { ProcessInfo.processInfo.environment[$0] != nil }
+        return environmentVariables.contains { self.processInfo.environment[$0] != nil }
     }
 }
 
-private extension UIDevice {
+extension UIDevice: DeviceProtocol {
     var isSimulator: Bool { TARGET_OS_SIMULATOR != 0 }
 }
 
@@ -93,7 +116,6 @@ private enum Constants {
         "/Library/MobileSubstrate/DynamicLibraries/LiveClock.plist",
         "/Library/MobileSubstrate/DynamicLibraries/Veency.plist",
         "/private/var/lib/apt",
-        "/private/var/lib/apt/",
         "/private/var/lib/cydia",
         "/private/var/mobile/Library/SBSettings/Themes",
         "/private/var/stash",
@@ -106,7 +128,18 @@ private enum Constants {
         "/usr/libexec/sftp-server",
         "/usr/sbin/sshd",
         "/etc/apt",
-        "/bin/bash",
-        "/Library/MobileSubstrate/MobileSubstrate.dylib"
+        "/bin/sh",
+        "/bin/su",
+        "/etc/ssh/sshd_config",
+        "/Library/MobileSubstrate/MobileSubstrate.dylib",
+        "/pguntether",
+        "/usr/bin/cycript",
+        "/usr/bin/ssh",
+        "/usr/sbin/frida-server",
+        "/var/cache/apt",
+        "/var/lib/cydia",
+        "/var/log/syslog",
+        "/var/mobile/Media/.evasi0n7_installed",
+        "/var/tmp/cydia.log"
     ]
 }

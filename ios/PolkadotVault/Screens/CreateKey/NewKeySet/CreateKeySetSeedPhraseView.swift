@@ -24,7 +24,7 @@ struct CreateKeySetSeedPhraseView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 0) {
                         Localizable.NewSeed.Backup.Label.header.text
-                            .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                            .foregroundColor(.textAndIconsPrimary)
                             .font(PrimaryFont.titleM.font)
                             .multilineTextAlignment(.leading)
                             .lineSpacing(Spacing.extraSmall)
@@ -50,15 +50,11 @@ struct CreateKeySetSeedPhraseView: View {
                             },
                             label: {
                                 HStack {
-                                    (
-                                        viewModel.confirmBackup ? Asset.checkboxChecked.swiftUIImage : Asset
-                                            .checkboxEmpty
-                                            .swiftUIImage
-                                    )
-                                    .foregroundColor(Asset.accentPink300.swiftUIColor)
+                                    Image(viewModel.confirmBackup ?.checkboxChecked : .checkboxEmpty)
+                                        .foregroundColor(.accentPink300)
                                     Localizable.NewSeed.Backup.Label.confirmation.text
                                         .multilineTextAlignment(.leading)
-                                        .foregroundColor(Asset.textAndIconsSecondary.swiftUIColor)
+                                        .foregroundColor(.textAndIconsSecondary)
                                     Spacer()
                                 }
                             }
@@ -66,7 +62,7 @@ struct CreateKeySetSeedPhraseView: View {
                         .padding(.horizontal, Spacing.large)
                         .padding(.bottom, Spacing.extraSmall)
                         Spacer()
-                        PrimaryButton(
+                        ActionButton(
                             action: viewModel.onCreateTap,
                             text: Localizable.NewSeed.Backup.Action.create.key,
                             style: .primary(isDisabled: .constant(!viewModel.confirmBackup))
@@ -88,7 +84,7 @@ struct CreateKeySetSeedPhraseView: View {
                     isActive: $viewModel.isPresentingDetails
                 ) { EmptyView() }
             }
-            .background(Asset.backgroundPrimary.swiftUIColor)
+            .background(.backgroundPrimary)
             .fullScreenModal(
                 isPresented: $viewModel.isPresentingInfo
             ) {
@@ -112,13 +108,13 @@ extension CreateKeySetSeedPhraseView {
         @Published var isPresentingDetails: Bool = false
         @Published var isPresentingInfo: Bool = false
         @Published var presentableInfo: ErrorBottomModalViewModel = .bananaSplitExplanation()
-        private let service: CreateKeySetService
+        private let service: CreateKeySetServicing
         private let onCompletion: (CreateKeysForNetworksView.OnCompletionAction) -> Void
 
         init(
             dataModel: MNewSeedBackup,
             isPresented: Binding<Bool>,
-            service: CreateKeySetService = CreateKeySetService(),
+            service: CreateKeySetServicing = CreateKeySetService(),
             seedsMediator: SeedsMediating = ServiceLocator.seedsMediator,
             onCompletion: @escaping (CreateKeysForNetworksView.OnCompletionAction) -> Void
         ) {

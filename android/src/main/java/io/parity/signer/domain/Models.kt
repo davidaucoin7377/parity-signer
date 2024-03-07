@@ -1,8 +1,7 @@
 package io.parity.signer.domain
 
-import io.parity.signer.components.ImageContent
 import io.parity.signer.components.sharedcomponents.KeyCardModel
-import io.parity.signer.components.toImageContent
+import io.parity.signer.domain.backend.OperationResult
 import io.parity.signer.ui.helpers.PreviewData
 import io.parity.signer.uniffi.*
 import java.util.*
@@ -11,45 +10,58 @@ import java.util.*
  * reflection of uniffi models so compose will work properly
  */
 
-
 /**
  * Local copy of shared [MKeys] class
  */
 data class KeySetDetailsModel(
 	val keysAndNetwork: List<KeyAndNetworkModel>,
-	val root: KeyModel?,
+	val root: KeyModel,
 ) {
 	companion object {
 		fun createStub(): KeySetDetailsModel = KeySetDetailsModel(
 			keysAndNetwork = listOf(
 				KeyAndNetworkModel(
-					key = KeyModel.createStub(),
+					key = KeyModel.createStub(addressKey = "address key"),
 					network = NetworkInfoModel.createStub()
 				),
 				KeyAndNetworkModel(
-					key = KeyModel.createStub(),
+					key = KeyModel.createStub(addressKey = "address key2"),
 					network = NetworkInfoModel.createStub(networkName = "Some")
 				),
 				KeyAndNetworkModel(
-					key = KeyModel.createStub()
+					key = KeyModel.createStub(addressKey = "address key3")
 						.copy(path = "//polkadot//path3"),
 					network = NetworkInfoModel.createStub()
 				),
 			),
 			root = KeyModel.createStub()
-				.copy(path = "//polkadot"),
+				.copy(path = "//polkadot", identicon = PreviewData.Identicon.jdenticonIcon),
 		)
 	}
 }
 
-fun MKeysNew.toKeySetDetailsModel() = KeySetDetailsModel(
-	keysAndNetwork = set.map { it.toKeyAndNetworkModel() },
-	root = root?.toKeysModel(),
-)
 
-data class KeyAndNetworkModel(val key: KeyModel, val network: NetworkInfoModel) {
+fun MKeysNew.toKeySetDetailsModel(): OperationResult<KeySetDetailsModel, ErrorDisplayed> {
+	return if (root == null) {
+		OperationResult.Err(ErrorDisplayed.Str("Key Set is missing in DB or storage inconsistent"))
+	} else {
+		OperationResult.Ok(
+			KeySetDetailsModel(
+				keysAndNetwork = set.map { it.toKeyAndNetworkModel() },
+				root = root!!.toKeysModel(),
+			)
+		)
+	}
+}
+
+
+data class KeyAndNetworkModel(
+	val key: KeyModel,
+	val network: NetworkInfoModel
+) {
 	companion object {
-		fun createStub() = KeyAndNetworkModel(KeyModel.createStub(), NetworkInfoModel.createStub())
+		fun createStub() =
+			KeyAndNetworkModel(KeyModel.createStub(), NetworkInfoModel.createStub())
 	}
 }
 
@@ -62,25 +74,25 @@ fun MKeyAndNetworkCard.toKeyAndNetworkModel() = KeyAndNetworkModel(
  * Local copy of shared [MKeysCard] class
  */
 data class KeyModel(
-	val identicon: ImageContent,
+	val identicon: Identicon,
 	val addressKey: String,
 	val seedName: String,
 	val base58: String,
 	val hasPwd: Boolean,
 	val path: String,
 	val secretExposed: Boolean,
-	val wasImported: Boolean?,
 ) {
 	companion object {
-		fun createStub(wasImported: Boolean = false) = KeyModel(
-			addressKey = "address key",
+		fun createStub(
+			addressKey: String = "address key",
+		) = KeyModel(
+			addressKey = addressKey,
 			base58 = "5F3sa2TJAWMqDhXG6jhV4N8ko9SxwGy8TpaNS1repo5EYjQX",
-			identicon = PreviewData.Identicon.exampleIdenticonPng,
+			identicon = PreviewData.Identicon.dotIcon,
 			hasPwd = true,
 			path = "//polkadot//path2",
 			secretExposed = false,
 			seedName = "sdsdsd",
-			wasImported = wasImported,
 		)
 	}
 }
@@ -88,12 +100,11 @@ data class KeyModel(
 fun MAddressCard.toKeysModel() = KeyModel(
 	addressKey = addressKey,
 	base58 = base58,
-	identicon = address.identicon.toImageContent(),
+	identicon = address.identicon,
 	hasPwd = address.hasPwd,
 	path = address.path,
 	secretExposed = address.secretExposed,
 	seedName = address.seedName,
-	wasImported = null,
 )
 
 /**
@@ -102,12 +113,11 @@ fun MAddressCard.toKeysModel() = KeyModel(
 fun MKeysCard.toKeyModel() = KeyModel(
 	addressKey = addressKey,
 	base58 = base58,
-	identicon = address.identicon.toImageContent(),
+	identicon = address.identicon,
 	hasPwd = address.hasPwd,
 	path = address.path,
 	secretExposed = address.secretExposed,
 	seedName = address.seedName,
-	wasImported = wasImported,
 )
 
 /**
@@ -126,9 +136,9 @@ fun MNetworkCard.toNetworkBasicModel() = NetworkBasicModel(
 /**
  * Local copy of shared [MSeeds] class
  */
-data class KeySetsSelectModel(val keys: List<KeySetModel>)
+data class KeySetsListModel(val keys: List<KeySetModel>)
 
-fun MSeeds.toKeySetsSelectModel() = KeySetsSelectModel(
+fun MSeeds.toKeySetsSelectModel() = KeySetsListModel(
 	seedNameCards.map { it.toSeedModel() }
 )
 
@@ -137,7 +147,7 @@ fun MSeeds.toKeySetsSelectModel() = KeySetsSelectModel(
  */
 data class KeySetModel(
 	val seedName: String,
-	val identicon: ImageContent,
+	val identicon: Identicon,
 	val usedInNetworks: List<String>,
 	val derivedKeysCount: UInt,
 ) {
@@ -145,7 +155,7 @@ data class KeySetModel(
 		fun createStub(name: String? = null, number: Int? = null) =
 			KeySetModel(
 				name ?: "first seed name",
-				PreviewData.Identicon.exampleIdenticonPng,
+				PreviewData.Identicon.jdenticonIcon,
 				listOf("westend", "some"),
 				number?.toUInt() ?: 1.toUInt()
 			)
@@ -156,7 +166,7 @@ data class KeySetModel(
 fun SeedNameCard.toSeedModel() =
 	KeySetModel(
 		seedName,
-		identicon.toImageContent(),
+		identicon,
 		usedInNetworks,
 		derivedKeysCount
 	)
@@ -171,7 +181,6 @@ data class KeyDetailsModel(
 	val address: KeyCardModel,
 	val base58: String,
 	val secretExposed: Boolean,
-	val wasImported: Boolean,
 ) {
 	val isRootKey = address.cardBase.path.isEmpty()
 
@@ -188,7 +197,6 @@ data class KeyDetailsModel(
 				address = keyCard,
 				base58 = keyCard.cardBase.base58,
 				secretExposed = true,
-				wasImported = false,
 			)
 		}
 
@@ -206,7 +214,6 @@ data class KeyDetailsModel(
 				),
 				base58 = keyCard.cardBase.base58,
 				secretExposed = true,
-				wasImported = false,
 			)
 		}
 	}
@@ -224,7 +231,6 @@ fun MKeyDetails.toKeyDetailsModel() =
 		),
 		base58 = base58,
 		secretExposed = address.secretExposed,
-		wasImported = wasImported,
 	)
 
 
@@ -296,23 +302,23 @@ fun MmNetwork.toNetworkModel(): NetworkModel = NetworkModel(
 )
 
 
-data class VerifierDetailsModels(
+data class VerifierDetailsModel(
 	val publicKey: String,
-	val identicon: ImageContent,
+	val identicon: Identicon,
 	val encryption: String,
 ) {
 	companion object {
-		fun createStub() = VerifierDetailsModels(
+		fun createStub() = VerifierDetailsModel(
 			publicKey = "5DCmwXp8XLzSMUyE4uhJMKV4vwvsWqqBYFKJq38CW53VHEVq",
-			identicon = PreviewData.Identicon.exampleIdenticonPng,
+			identicon = PreviewData.Identicon.dotIcon,
 			encryption = "sr25519",
 		)
 	}
 }
 
-fun MVerifierDetails.toVerifierDetailsModels() = VerifierDetailsModels(
+fun MVerifierDetails.toVerifierDetailsModel() = VerifierDetailsModel(
 	publicKey = publicKey,
-	identicon = identicon.toImageContent(),
+	identicon = identicon,
 	encryption = encryption,
 )
 

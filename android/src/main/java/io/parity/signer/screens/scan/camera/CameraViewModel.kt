@@ -1,7 +1,7 @@
 package io.parity.signer.screens.scan.camera
 
 import android.annotation.SuppressLint
-import android.util.Log
+import android.os.Trace
 import androidx.camera.core.ImageProxy
 import androidx.lifecycle.ViewModel
 import com.google.mlkit.vision.barcode.BarcodeScanner
@@ -12,6 +12,7 @@ import io.parity.signer.uniffi.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import timber.log.Timber
 
 
 class CameraViewModel() : ViewModel() {
@@ -56,7 +57,7 @@ class CameraViewModel() : ViewModel() {
 		barcodeScanner: BarcodeScanner,
 		imageProxy: ImageProxy
 	) {
-
+		Trace.beginSection("process frame")
 		if (imageProxy.image == null) return
 		val inputImage = InputImage.fromMediaImage(
 			imageProxy.image!!,
@@ -65,6 +66,7 @@ class CameraViewModel() : ViewModel() {
 
 		barcodeScanner.process(inputImage)
 			.addOnSuccessListener { barcodes ->
+				Trace.beginSection("process frame vault code")
 				barcodes.forEach {
 					val payloadString = it?.rawBytes?.encodeHex()
 					if (!currentMultiQrTransaction.contains(payloadString) && !payloadString.isNullOrEmpty()) {
@@ -80,7 +82,7 @@ class CameraViewModel() : ViewModel() {
 									_total.value = proposeTotal
 								}
 							} catch (e: java.lang.Exception) {
-								Log.e("scanVM", "QR sequence length estimation $e")
+								Timber.e("scanVM", "QR sequence length estimation $e")
 							}
 						} else {
 							currentMultiQrTransaction += payloadString
@@ -89,15 +91,17 @@ class CameraViewModel() : ViewModel() {
 							} else {
 								_captured.value = currentMultiQrTransaction.size
 							}
-							Log.d("scanVM", "captured " + captured.value.toString())
+							Timber.d("scanVM", "captured " + captured.value.toString())
 						}
 					}
 				}
+				Trace.endSection()
 			}
 			.addOnFailureListener {
-				Log.e("scanVM", "Scan failed " + it.message.toString())
+				Timber.e("scanVM", "Scan failed " + it.message.toString())
 			}
 			.addOnCompleteListener {
+				Trace.endSection()
 				imageProxy.close()
 			}
 	}
@@ -116,12 +120,14 @@ class CameraViewModel() : ViewModel() {
 							//we passed a null password in qrparserTryDecodeQrSequence so we can't get there
 							submitErrorState("cannot happen here that for scanning we don't have password request")
 						}
+
 						BananaSplitRecoveryResult.RequestPassword -> {
 							resetScanValues()
 							_bananaSplitPayload.value = completePayload
 						}
 					}
 				}
+
 				is DecodeSequenceResult.Other -> {
 					val actualPayload = payload.s
 					resetScanValues()
@@ -136,12 +142,11 @@ class CameraViewModel() : ViewModel() {
 				is DecodeSequenceResult.DynamicDerivationTransaction -> {
 					resetScanValues()
 					_dynamicDerivationTransactionPayload.value = payload.s
-
 				}
 			}
 
 		} catch (e: Exception) {
-			Log.e("scanVM", "Single frame decode failed $e")
+			Timber.e("scanVM", "Single frame decode failed $e")
 		}
 	}
 

@@ -9,25 +9,26 @@ import SwiftUI
 
 struct PrimaryTextFieldStyle: ViewModifier {
     let placeholder: String
+    let keyboardType: UIKeyboardType
     @Binding var text: String
     @Binding var isValid: Bool
 
     func body(content: Content) -> some View {
         content
-            .foregroundColor(isValid ? Asset.textAndIconsPrimary.swiftUIColor : Asset.accentRed300.swiftUIColor)
+            .foregroundColor(isValid ? .textAndIconsPrimary : .accentRed300)
             .placeholder(placeholder, when: text.isEmpty)
             .font(PrimaryFont.bodyL.font)
             .autocapitalization(.none)
             .disableAutocorrection(true)
-            .keyboardType(.asciiCapable)
+            .keyboardType(keyboardType)
             .submitLabel(.return)
             .frame(height: Heights.textFieldHeight)
             .padding(.horizontal, Spacing.medium)
-            .background(Asset.fill6.swiftUIColor)
+            .background(.fill6)
             .cornerRadius(CornerRadius.small)
             .overlay(
                 RoundedRectangle(cornerRadius: CornerRadius.small)
-                    .stroke(isValid ? .clear : Asset.accentRed300.swiftUIColor, lineWidth: 1)
+                    .stroke(isValid ? .clear : .accentRed300, lineWidth: 1)
             )
     }
 }
@@ -35,9 +36,15 @@ struct PrimaryTextFieldStyle: ViewModifier {
 extension View {
     func primaryTextFieldStyle(
         _ placeholder: String,
+        keyboardType: UIKeyboardType = .asciiCapable,
         text: Binding<String>,
         isValid: Binding<Bool> = Binding<Bool>.constant(true)
     ) -> some View {
-        modifier(PrimaryTextFieldStyle(placeholder: placeholder, text: text, isValid: isValid))
+        modifier(PrimaryTextFieldStyle(
+            placeholder: placeholder,
+            keyboardType: keyboardType,
+            text: text,
+            isValid: isValid
+        ))
     }
 }

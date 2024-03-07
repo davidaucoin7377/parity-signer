@@ -9,6 +9,12 @@ import Combine
 import Foundation
 import SwiftUI
 
+enum BananaSplitPresentationState {
+    case createBackup(BananaSplitModalView.ViewModel)
+    case qrCode(BananaSplitQRCodeModalView.ViewModel)
+    case empty
+}
+
 extension KeyDetailsView {
     enum OnCompletionAction: Equatable {
         case keySetDeleted
@@ -21,39 +27,43 @@ extension KeyDetailsView {
 
     final class ViewModel: ObservableObject {
         let keyDetailsService: KeyDetailsService
-        private let networksService: GetAllNetworksService
-        private let warningStateMediator: WarningStateMediator
+        private let networksService: GetManagedNetworksService
         private let cancelBag = CancelBag()
 
         private let exportPrivateKeyService: PrivateKeyQRCodeService
         private let keyDetailsActionsService: KeyDetailsActionService
         private let seedsMediator: SeedsMediating
-        let keyName: String
-        /// `MKwysNew` will currently be `nil` when navigating through given navigation path:
-        /// `.newSeed` -> `.keys`, data will be filled on `onAppear`, so this can remain optional
-        var keysData: MKeysNew?
-        private var appState: AppState
+        private let bananaSplitMediator: KeychainBananaSplitAccessMediating
+
+        @Published var keyName: String
+        @Published var keysData: MKeysNew?
+        @Published var bananaSplitPresentationState: BananaSplitPresentationState = .empty
         @Published var shouldPresentRemoveConfirmationModal = false
-        @Published var shouldPresentBackupModal = false
-        @Published var shouldPresentSelectionOverlay = false
+        @Published var shouldPresentBananaSplitBackupModal = false
+        @Published var shouldPresentManualBackupModal = false
+        @Published var shouldPresentExportKeysSelection = false
         @Published var isShowingActionSheet = false
         @Published var isShowingRemoveConfirmation = false
+        @Published var isPresentingBananaSplitBackupModal = false
         @Published var isShowingBackupModal = false
-        @Published var isPresentingConnectivityAlert = false
-        @Published var isPresentingSelectionOverlay = false
+        @Published var isPresentingExportKeySelection = false
         @Published var isPresentingRootDetails = false
         @Published var isPresentingKeyDetails = false
         @Published var presentedKeyDetails: MKeyDetails!
         @Published var presentedPublicKeyDetails: String!
 
         @Published var isShowingKeysExportModal = false
-        // Network selection
         @Published var isPresentingNetworkSelection = false
+        @Published var isPresentingKeySetSelection = false
+        @Published var isShowingRecoverKeySet = false
+        @Published var isShowingCreateKeySet = false
+        @Published var isPresentingSettings = false
+        @Published var isPresentingQRScanner: Bool = false
 
-        @Published var keySummary: KeySummaryViewModel?
         @Published var derivedKeys: [DerivedKeyRowModel] = []
-        @Published var selectedKeys: [DerivedKeyRowModel] = []
         @Published var isFilteringActive: Bool = false
+        @Published var networks: [MmNetwork] = []
+        @Published var selectedNetworks: [MmNetwork] = []
         // Error handling
         @Published var isPresentingError: Bool = false
         @Published var presentableError: ErrorBottomModalViewModel = .noNetworksAvailable()
@@ -65,55 +75,39 @@ extension KeyDetailsView {
         // Derive New Key
         @Published var isPresentingDeriveNewKey: Bool = false
 
-        // Back Navigation
-        var dismissViewRequest: AnyPublisher<Void, Never> {
-            dismissRequest.eraseToAnyPublisher()
-        }
+        var keysExportModalViewModel: (() -> ExportMultipleKeysModalViewModel)?
 
-        private let dismissRequest = PassthroughSubject<Void, Never>()
-        private let onCompletion: (OnCompletionAction) -> Void
-        /// Name of seed to be removed with `Remove Seed` action
-        private var removeSeed: String = ""
+        private let onDeleteCompletion: () -> Void
 
         init(
-            keyName: String,
-            keysData: MKeysNew?,
+            initialKeyName: String,
+            onDeleteCompletion: @escaping () -> Void,
             exportPrivateKeyService: PrivateKeyQRCodeService = PrivateKeyQRCodeService(),
             keyDetailsService: KeyDetailsService = KeyDetailsService(),
-            networksService: GetAllNetworksService = GetAllNetworksService(),
+            networksService: GetManagedNetworksService = GetManagedNetworksService(),
             keyDetailsActionsService: KeyDetailsActionService = KeyDetailsActionService(),
-            warningStateMediator: WarningStateMediator = ServiceLocator.warningStateMediator,
-            appState: AppState = ServiceLocator.appState,
             seedsMediator: SeedsMediating = ServiceLocator.seedsMediator,
-            onCompletion: @escaping (OnCompletionAction) -> Void
+            bananaSplitMediator: KeychainBananaSplitAccessMediating = KeychainBananaSplitMediator()
         ) {
-            self.keyName = keyName
-            self.keysData = keysData
+            self.onDeleteCompletion = onDeleteCompletion
             self.exportPrivateKeyService = exportPrivateKeyService
             self.keyDetailsService = keyDetailsService
             self.networksService = networksService
             self.keyDetailsActionsService = keyDetailsActionsService
-            self.warningStateMediator = warningStateMediator
-            self.appState = appState
             self.seedsMediator = seedsMediator
-            self.onCompletion = onCompletion
-            use(appState: appState)
-            updateRenderables()
+            self.bananaSplitMediator = bananaSplitMediator
+            _keyName = .init(initialValue: initialKeyName)
             subscribeToNetworkChanges()
-            refreshData()
         }
 
-        func use(appState _: AppState) {
-            $isPresentingNetworkSelection.sink { newValue in
-                guard !newValue else { return }
-                self.isFilteringActive = !self.appState.userData.selectedNetworks.isEmpty
-            }
-            .store(in: cancelBag)
+        func onAppear() {
+            refreshData()
         }
 
         func subscribeToNetworkChanges() {
             $isPresentingNetworkSelection.sink { newValue in
                 guard !newValue else { return }
+                self.isFilteringActive = !self.selectedNetworks.isEmpty
                 self.refreshDerivedKeys()
             }
             .store(in: cancelBag)
@@ -121,7 +115,6 @@ extension KeyDetailsView {
 
         func updateRenderables() {
             refreshDerivedKeys()
-            refreshKeySummary()
             refreshNetworks()
         }
 
@@ -136,13 +129,14 @@ extension KeyDetailsView {
                     self.isPresentingError = true
                 }
             }
+            updateBananaSplitPresentationState()
         }
 
         func refreshNetworks() {
             networksService.getNetworks { result in
                 switch result {
                 case let .success(networks):
-                    self.appState.userData.allNetworks = networks
+                    self.networks = networks
                 case let .failure(error):
                     self.presentableError = .alertError(message: error.description)
                     self.isPresentingError = true
@@ -151,15 +145,27 @@ extension KeyDetailsView {
         }
 
         func onRemoveKeySetConfirmationTap() {
-            let isRemoved = seedsMediator.removeSeed(seedName: removeSeed)
+            let isRemoved = seedsMediator.removeSeed(seedName: keyName)
             guard isRemoved else { return }
-            keyDetailsActionsService.forgetKeySetAction(keyName)
-            dismissRequest.send()
-            onCompletion(.keySetDeleted)
-        }
-
-        func onRemoveKeySetModalDismiss() {
-            keyDetailsActionsService.resetNavigationStateToKeyDetails(keyName)
+            keyDetailsActionsService.forgetKeySet(seedName: keyName) { result in
+                switch result {
+                case .success:
+                    self.snackbarViewModel = .init(
+                        title: Localizable.KeySetsModal.Confirmation.snackbar.string,
+                        style: .warning
+                    )
+                    self.isSnackbarPresented = true
+                    if self.seedsMediator.seedNames.isEmpty {
+                        self.onDeleteCompletion()
+                    } else {
+                        self.keyName = self.seedsMediator.seedNames.first ?? ""
+                        self.refreshData()
+                    }
+                case let .failure(error):
+                    self.presentableError = .alertError(message: error.localizedDescription)
+                    self.isPresentingError = true
+                }
+            }
         }
 
         func onPublicKeyCompletion(_ completionAction: KeyDetailsPublicKeyView.OnCompletionAction) {
@@ -196,15 +202,78 @@ extension KeyDetailsView {
             )
         }
 
-        func toggleSelectKeysOverlay() {
-            isPresentingSelectionOverlay.toggle()
-            if !isPresentingSelectionOverlay {
-                selectedKeys = []
+        func exportSelectedKeys() {
+            isShowingKeysExportModal = true
+        }
+
+        func onExportKeySelectionComplete(_ completionAction: ExportKeysSelectionModal.OnCompletionAction) {
+            switch completionAction {
+            case .onCancel:
+                ()
+            case let .onKeysExport(selectedKeys):
+                guard let root = keysData?.root else { return }
+                let derivedKeys = selectedKeys.map {
+                    DerivedKeyExportModel(viewModel: $0.viewModel, keyData: $0.keyData)
+                }
+                keysExportModalViewModel = { ExportMultipleKeysModalViewModel(
+                    keyName: root.address.seedName,
+                    key: .init(identicon: root.address.identicon, base58: root.base58),
+                    derivedKeys: derivedKeys,
+                    count: selectedKeys.count
+                )
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now()) {
+                    self.isShowingKeysExportModal = true
+                }
             }
         }
 
-        func exportSelectedKeys() {
-            isShowingKeysExportModal = true
+        func onKeySetSelectionComplete(_ completionAction: ManageKeySetsView.OnCompletionAction) {
+            switch completionAction {
+            case .onClose:
+                ()
+            case .addKeySet:
+                DispatchQueue.main.async {
+                    self.isShowingCreateKeySet = true
+                }
+            case .recoverKeySet:
+                DispatchQueue.main.async {
+                    self.isShowingRecoverKeySet = true
+                }
+            case let .viewKeySet(selectedKeySet):
+                isFilteringActive = false
+                selectedNetworks = []
+                keyName = selectedKeySet.seedName
+                refreshData()
+            }
+        }
+
+        func onKeySetAddCompletion(_ completionAction: CreateKeysForNetworksView.OnCompletionAction) {
+            let message: String
+            switch completionAction {
+            case let .createKeySet(seedName):
+                message = Localizable.CreateKeysForNetwork.Snackbar.keySetCreated(seedName)
+                keyName = seedName
+            case let .recoveredKeySet(seedName):
+                message = Localizable.CreateKeysForNetwork.Snackbar.keySetRecovered(seedName)
+                keyName = seedName
+            }
+            refreshData()
+            snackbarViewModel = .init(
+                title: message,
+                style: .info
+            )
+            isSnackbarPresented = true
+        }
+
+        func onBananaSplitModalCompletion(_: BananaSplitModalView.OnCompletionAction) {
+            updateBananaSplitPresentationState()
+            isPresentingBananaSplitBackupModal = false
+        }
+
+        func onBananaSplitBackupModalCompletion(_: BananaSplitQRCodeModalView.OnCompletionAction) {
+            updateBananaSplitPresentationState()
+            isPresentingBananaSplitBackupModal = false
         }
     }
 }
@@ -213,7 +282,7 @@ extension KeyDetailsView {
 
 extension KeyDetailsView.ViewModel {
     func onCreateDerivedKeyTap() {
-        if appState.userData.allNetworks.isEmpty {
+        if networks.isEmpty {
             presentableError = .noNetworksAvailable()
             isPresentingError = true
         } else {
@@ -222,63 +291,85 @@ extension KeyDetailsView.ViewModel {
     }
 
     func onRootKeyTap() {
-        guard !isPresentingSelectionOverlay else { return }
         isPresentingRootDetails = true
+    }
+
+    func onSettingsTap() {
+        isPresentingSettings = true
+    }
+
+    func onMoreTap() {
+        isShowingActionSheet = true
+    }
+
+    func onQRScannerTap() {
+        isPresentingQRScanner = true
+    }
+
+    func onKeySetSelectionTap() {
+        isPresentingKeySetSelection = true
     }
 
     func onNetworkSelectionTap() {
         networksService.getNetworks { result in
             if case let .success(networks) = result {
-                self.appState.userData.allNetworks = networks
+                self.networks = networks
                 self.isPresentingNetworkSelection = true
             }
         }
     }
 
     func onDerivedKeyTap(_ deriveKey: DerivedKeyRowModel) {
-        if isPresentingSelectionOverlay {
-            if selectedKeys.contains(deriveKey) {
-                selectedKeys.removeAll { $0 == deriveKey }
-            } else {
-                selectedKeys.append(deriveKey)
+        DispatchQueue.main.async {
+            self.keyDetailsActionsService.publicKey(
+                addressKey: deriveKey.keyData.key.addressKey,
+                networkSpecsKey: deriveKey.keyData.network.networkSpecsKey
+            ) { result in
+                switch result {
+                case let .success(keyDetails):
+                    self.presentedPublicKeyDetails = deriveKey.addressKey
+                    self.presentedKeyDetails = keyDetails
+                    self.isPresentingKeyDetails = true
+                case let .failure(error):
+                    self.presentableError = .alertError(message: error.localizedDescription)
+                    self.isPresentingError = true
+                }
             }
-        } else {
-            guard let keyDetails = keyDetailsActionsService.navigateToPublicKey(keyName, deriveKey.publicKeyDetails)
-            else { return }
-            presentedPublicKeyDetails = deriveKey.publicKeyDetails
-            presentedKeyDetails = keyDetails
-            isPresentingKeyDetails = true
         }
-    }
-
-    func onConnectivityAlertTap() {
-        warningStateMediator.resetConnectivityWarnings()
-        shouldPresentBackupModal.toggle()
     }
 }
 
 // MARK: - Modals
 
 extension KeyDetailsView.ViewModel {
+    func onQRScannerDismiss() {
+        refreshData()
+    }
+
     func onActionSheetDismissal() {
-        let isAlertVisible = warningStateMediator.alert
         if shouldPresentRemoveConfirmationModal {
             shouldPresentRemoveConfirmationModal.toggle()
             isShowingRemoveConfirmation.toggle()
         }
-        if shouldPresentBackupModal {
-            shouldPresentBackupModal.toggle()
-            if isAlertVisible {
-                isPresentingConnectivityAlert.toggle()
-            } else {
-                keyDetailsActionsService.performBackupSeed(keyName)
-                updateBackupModel()
-                isShowingBackupModal = true
+        if shouldPresentManualBackupModal {
+            shouldPresentManualBackupModal.toggle()
+            keyDetailsActionsService.performBackupSeed(seedName: keyName) { result in
+                switch result {
+                case .success:
+                    self.tryToPresentBackupModal()
+                case let .failure(error):
+                    self.presentableError = .alertError(message: error.localizedDescription)
+                    self.isPresentingError = true
+                }
             }
         }
-        if shouldPresentSelectionOverlay {
-            shouldPresentSelectionOverlay.toggle()
-            isPresentingSelectionOverlay.toggle()
+        if shouldPresentBananaSplitBackupModal {
+            shouldPresentBananaSplitBackupModal.toggle()
+            isPresentingBananaSplitBackupModal = true
+        }
+        if shouldPresentExportKeysSelection {
+            shouldPresentExportKeysSelection = false
+            isPresentingExportKeySelection = true
         }
     }
 
@@ -286,26 +377,71 @@ extension KeyDetailsView.ViewModel {
         backupModal = nil
     }
 
-    func keyExportModel() -> ExportMultipleKeysModalViewModel? {
-        guard let keySummary = keySummary else { return nil }
-        let derivedKeys = selectedKeys.map {
-            DerivedKeyExportModel(viewModel: $0.viewModel, keyData: $0.keyData)
-        }
-        return ExportMultipleKeysModalViewModel(
-            key: keySummary,
-            derivedKeys: derivedKeys,
-            count: selectedKeys.count
+    func rootKeyDetails() -> RootKeyDetailsModal.Renderable {
+        .init(
+            seedName: keyName,
+            identicon: keysData?.root?.address.identicon,
+            base58: keysData?.root?.base58 ?? ""
         )
     }
 
-    func rootKeyDetails() -> RootKeyDetailsModal.ViewModel {
-        .init(name: keySummary?.keyName ?? "", publicKey: keySummary?.base58 ?? "")
+    func updateBananaSplitPresentationState() {
+        switch bananaSplitMediator.checkIfBananaSplitAlreadyExists(seedName: keyName) {
+        case let .success(exists):
+            if exists {
+                switch bananaSplitMediator.retrieveBananaSplit(with: keyName) {
+                case let .success(bananaSplitBackup):
+                    bananaSplitPresentationState = .qrCode(
+                        .init(
+                            seedName: keyName,
+                            bananaSplitBackup: bananaSplitBackup,
+                            onCompletion: onBananaSplitBackupModalCompletion(_:)
+                        )
+                    )
+                case .failure:
+                    bananaSplitPresentationState = .createBackup(
+                        .init(
+                            seedName: keyName,
+                            isPresented: Binding(
+                                get: { self.isPresentingBananaSplitBackupModal },
+                                set: { self.isPresentingBananaSplitBackupModal = $0 }
+                            ),
+                            onCompletion: onBananaSplitModalCompletion(_:)
+                        )
+                    )
+                }
+            } else {
+                bananaSplitPresentationState = .createBackup(
+                    .init(
+                        seedName: keyName,
+                        isPresented: Binding(
+                            get: { self.isPresentingBananaSplitBackupModal },
+                            set: { self.isPresentingBananaSplitBackupModal = $0 }
+                        ),
+                        onCompletion: onBananaSplitModalCompletion(_:)
+                    )
+                )
+            }
+        case let .failure(failure):
+            presentableError = .alertError(message: failure.localizedDescription)
+            isPresentingError = true
+            bananaSplitPresentationState = .empty
+        }
     }
 }
 
 private extension KeyDetailsView.ViewModel {
-    func updateBackupModel() {
-        backupModal = exportPrivateKeyService.backupViewModel(keysData)
+    func tryToPresentBackupModal() {
+        exportPrivateKeyService.backupViewModel(keysData) { result in
+            switch result {
+            case let .success(backupModal):
+                self.backupModal = backupModal
+                self.isShowingBackupModal = true
+            case let .failure(error):
+                self.presentableError = .alertError(message: error.message)
+                self.isPresentingError = true
+            }
+        }
     }
 
     func keyData(for derivedKey: DerivedKeyRowModel) -> MKeyAndNetworkCard? {
@@ -313,36 +449,27 @@ private extension KeyDetailsView.ViewModel {
     }
 
     func refreshDerivedKeys() {
-        guard let keysData = keysData else { return }
+        guard let keysData else { return }
         let sortedDerivedKeys = keysData.set
             .sorted(by: { $0.key.address.path < $1.key.address.path })
-        let filteredKeys: [MKeyAndNetworkCard]
-        if appState.userData.selectedNetworks.isEmpty {
-            filteredKeys = sortedDerivedKeys
-        } else {
-            filteredKeys = sortedDerivedKeys.filter {
-                appState.userData.selectedNetworks
-                    .map(\.key)
-                    .contains($0.network.networkSpecsKey)
+        let filteredKeys: [MKeyAndNetworkCard] =
+            if selectedNetworks.isEmpty {
+                sortedDerivedKeys
+            } else {
+                sortedDerivedKeys.filter {
+                    selectedNetworks
+                        .map(\.key)
+                        .contains($0.network.networkSpecsKey)
+                }
             }
-        }
         derivedKeys = filteredKeys
             .map {
                 DerivedKeyRowModel(
                     keyData: $0,
                     viewModel: DerivedKeyRowViewModel($0),
-                    publicKeyDetails: $0.publicKeyDetails
+                    addressKey: $0.key.addressKey
                 )
             }
         viewState = derivedKeys.isEmpty ? .emptyState : .list
-    }
-
-    func refreshKeySummary() {
-        guard let keysData = keysData else { return }
-        keySummary = KeySummaryViewModel(
-            keyName: keysData.root?.address.seedName ?? "",
-            base58: keysData.root?.base58 ?? ""
-        )
-        removeSeed = keysData.root?.address.seedName ?? ""
     }
 }

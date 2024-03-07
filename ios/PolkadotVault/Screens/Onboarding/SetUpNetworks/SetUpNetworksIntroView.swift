@@ -15,36 +15,36 @@ struct SetUpNetworksIntroView: View {
             // Header text
             Localizable.Onboarding.SetUpNetworks.Label.title.text
                 .font(PrimaryFont.titleL.font)
-                .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                .foregroundColor(.textAndIconsPrimary)
                 .multilineTextAlignment(.center)
                 .padding(.top, Spacing.extraLarge)
                 .padding(.horizontal, Spacing.extraLarge)
                 .padding(.bottom, Spacing.medium)
             Localizable.Onboarding.SetUpNetworks.Label.content.text
                 .font(PrimaryFont.bodyM.font)
-                .foregroundColor(Asset.textAndIconsTertiary.swiftUIColor)
+                .foregroundColor(.textAndIconsTertiary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, Spacing.large)
             Spacer()
             // Networks preview
-            Asset.networkPreviewIcons.swiftUIImage
+            Image(.networkPreviewIcons)
             Spacer()
-            PrimaryButton(
+            ActionButton(
                 action: viewModel.onSetUpTap,
                 text: Localizable.Onboarding.SetUpNetworks.Action.setUp.key,
                 style: .primary()
             )
             .padding(.horizontal, Spacing.large)
             .padding(.bottom, Spacing.extraSmall)
-            SecondaryButton(
-                action: viewModel.onLaterTap(),
+            ActionButton(
+                action: viewModel.onLaterTap,
                 text: Localizable.Onboarding.SetUpNetworks.Action.later.key,
                 style: .secondary()
             )
             .padding(.horizontal, Spacing.large)
             .padding(.bottom, Spacing.large)
         }
-        .background(Asset.backgroundSystem.swiftUIColor)
+        .background(.backgroundSystem)
     }
 }
 

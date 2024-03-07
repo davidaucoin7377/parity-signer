@@ -7,10 +7,8 @@ use std::collections::HashMap;
 use std::{convert::TryInto, str::FromStr};
 
 use constants::{
-    test_values::{
-        alice_sr_alice, alice_sr_root, empty_png, types_known, westend_9000, westend_9010,
-    },
-    ADDRTREE, ALICE_SEED_PHRASE, METATREE, SPECSTREE,
+    test_values::{alice_sr_alice, empty_png, types_known, westend_9000, westend_9010},
+    ADDRTREE, ALICE_SEED_PHRASE, METATREE, SCHEMA_VERSION, SPECSTREE,
 };
 use db_handling::Error;
 use defaults::default_chainspecs;
@@ -25,17 +23,17 @@ use definitions::{
     metadata::MetaValues,
     navigation::{
         Address, DerivationCheck as NavDerivationCheck, DerivationDestination, DerivationEntry,
-        DerivationPack, MBackup, MDeriveKey, MKeyDetails, MMMNetwork, MMNetwork, MManageMetadata,
-        MMetadataRecord, MNetworkDetails, MNetworkMenu, MRawKey, MSCNetworkInfo, MTypesInfo,
-        MVerifier, Network, NetworkSpecs, SeedNameCard, SignerImage,
+        DerivationPack, Identicon, MBackup, MDeriveKey, MKeyDetails, MMMNetwork, MMNetwork,
+        MManageMetadata, MMetadataRecord, MNetworkDetails, MNetworkMenu, MRawKey, MSCNetworkInfo,
+        MTypesInfo, MVerifier, Network, NetworkSpecs, SeedNameCard,
     },
     network_specs::{OrderedNetworkSpecs, ValidCurrentVerifier, Verifier, VerifierValue},
     users::AddressDetails,
 };
 
 use db_handling::identities::{
-    create_key_set, dynamic_derivations_response, process_dynamic_derivations_v1,
-    try_create_imported_address,
+    create_key_set, dynamic_derivations_response, get_all_addresses,
+    process_dynamic_derivations_v1, validate_key_password,
 };
 use db_handling::{
     cold_default::{
@@ -69,6 +67,7 @@ use definitions::dynamic_derivations::{
 use definitions::helpers::multisigner_to_public;
 use definitions::navigation::MAddressCard;
 
+use db_handling::helpers::assert_db_version;
 use tempfile::tempdir;
 
 fn westend_genesis() -> H256 {
@@ -88,8 +87,8 @@ fn print_seed_names() {
     let cards = get_all_seed_names_with_identicons(&db, &[String::from("Alice")]).unwrap();
     let expected_cards = vec![SeedNameCard {
         seed_name: "Alice".to_string(),
-        identicon: SignerImage::Png {
-            image: alice_sr_root().to_vec(),
+        identicon: Identicon::Jdenticon {
+            identity: "8PegJD6VsjWwinrP6AfgNqejWYdJ8KqF4xutpyq7AdFJ3W5".to_string(),
         },
         used_in_networks: vec!["westend".to_string()],
         derived_keys_count: 1, // "//Alice"
@@ -110,16 +109,16 @@ fn print_seed_names_with_orphan() {
     let expected_cards = vec![
         SeedNameCard {
             seed_name: "Alice".to_string(),
-            identicon: SignerImage::Png {
-                image: alice_sr_root().to_vec(),
+            identicon: Identicon::Jdenticon {
+                identity: "8PegJD6VsjWwinrP6AfgNqejWYdJ8KqF4xutpyq7AdFJ3W5".to_string(),
             },
             used_in_networks: vec!["westend".to_string()],
             derived_keys_count: 1,
         },
         SeedNameCard {
             seed_name: "BobGhost".to_string(),
-            identicon: SignerImage::Png {
-                image: empty_png().to_vec(),
+            identicon: Identicon::Dots {
+                identity: empty_png(),
             },
             used_in_networks: vec![],
             derived_keys_count: 0,
@@ -130,7 +129,7 @@ fn print_seed_names_with_orphan() {
 
 #[test]
 fn print_all_ids() {
-    use definitions::navigation::SignerImage;
+    use definitions::navigation::Identicon;
     let dbname = tempdir().unwrap();
     let db = sled::open(dbname).unwrap();
 
@@ -146,8 +145,8 @@ fn print_all_ids() {
         public_key: "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d".to_string(),
         address: Address {
             seed_name: "Alice".to_string(),
-            identicon: SignerImage::Png {
-                image: alice_sr_alice().to_vec(),
+            identicon: Identicon::Dots {
+                identity: alice_sr_alice().to_vec(),
             },
             has_pwd: false,
             path: "//Alice".to_string(),
@@ -250,7 +249,7 @@ fn first_standard_network() {
 
 #[test]
 fn export_alice_westend() {
-    use definitions::navigation::SignerImage;
+    use definitions::navigation::Identicon;
     let dbname = tempdir().unwrap();
     let db = sled::open(dbname).unwrap();
 
@@ -282,8 +281,8 @@ fn export_alice_westend() {
         pubkey: pubkey.to_string(),
         base58: expected_addr.to_string(),
         address: Address {
-            identicon: SignerImage::Png {
-                image: alice_sr_alice().to_vec(),
+            identicon: Identicon::Dots {
+                identity: alice_sr_alice().to_vec(),
             },
             seed_name: "Alice".to_string(),
             path: "//Alice".to_string(),
@@ -296,7 +295,6 @@ fn export_alice_westend() {
             network_specs_key: "01e143f23803ac50e8f6f8e62695d1ce9e4e1d68aa36c1cd2cfd15340213f3423e"
                 .to_string(),
         },
-        was_imported: false,
     };
     assert_eq!(key, expected_key);
 }
@@ -452,8 +450,8 @@ fn westend_network_details() {
             ttype: "general".to_string(),
             details: definitions::navigation::MVerifierDetails {
                 public_key: "".to_string(),
-                identicon: SignerImage::Png {
-                    image: empty_png().to_vec(),
+                identicon: Identicon::Dots {
+                    identity: empty_png().to_vec(),
                 },
                 encryption: "".to_string(),
             },
@@ -464,8 +462,8 @@ fn westend_network_details() {
                 specs_version: "9000".to_string(),
                 meta_hash: "e80237ad8b2e92b72fcf6beb8f0e4ba4a21043a7115c844d91d6c4f981e469ce"
                     .to_string(),
-                meta_id_pic: SignerImage::Png {
-                    image: westend_9000().to_vec(),
+                meta_id_pic: Identicon::Dots {
+                    identity: westend_9000().to_vec(),
                 },
             },
             MMetadataRecord {
@@ -473,8 +471,8 @@ fn westend_network_details() {
                 specs_version: "9010".to_string(),
                 meta_hash: "70c99738c27fb32c87883f1c9c94ee454bf0b3d88e4a431a2bbfe1222b46ebdf"
                     .to_string(),
-                meta_id_pic: SignerImage::Png {
-                    image: westend_9010().to_vec(),
+                meta_id_pic: Identicon::Dots {
+                    identity: westend_9010().to_vec(),
                 },
             },
         ],
@@ -502,8 +500,8 @@ fn westend_9010_metadata_details() {
         name: "westend".to_string(),
         version: "9010".to_string(),
         meta_hash: "70c99738c27fb32c87883f1c9c94ee454bf0b3d88e4a431a2bbfe1222b46ebdf".to_string(),
-        meta_id_pic: SignerImage::Png {
-            image: westend_9010().to_vec(),
+        meta_id_pic: Identicon::Dots {
+            identity: westend_9010().to_vec(),
         },
         networks: vec![MMMNetwork {
             title: "Westend".to_string(),
@@ -528,8 +526,8 @@ fn types_status_and_history() {
         types_hash: Some(
             "d091a5a24a97e18dfe298b167d8fd5a2add10098c8792cba21c39029a9ee0aeb".to_string(),
         ),
-        types_id_pic: Some(SignerImage::Png {
-            image: types_known().to_vec(),
+        types_id_pic: Some(Identicon::Dots {
+            identity: types_known().to_vec(),
         }),
     };
     assert_eq!(types, expected_types);
@@ -582,8 +580,8 @@ fn path_is_known() {
             address: Address {
                 path: "//Alice".to_string(),
                 has_pwd: false,
-                identicon: SignerImage::Png {
-                    image: alice_sr_alice().to_vec(),
+                identicon: Identicon::Dots {
+                    identity: alice_sr_alice().to_vec(),
                 },
                 seed_name: "Alice".to_string(),
                 secret_exposed: false,
@@ -2064,7 +2062,6 @@ fn test_create_key_set_generate_default_addresses() {
             )),
             encryption: Encryption::Sr25519,
             secret_exposed: false,
-            was_imported: false,
         },
     )];
 
@@ -2078,41 +2075,6 @@ fn test_create_key_set_generate_default_addresses() {
     )
     .unwrap();
     assert!(identities.contains_key(test_key.key()).unwrap());
-}
-
-#[test]
-fn test_created_imported_address() {
-    let dbname = tempdir().unwrap();
-    let db = sled::open(&dbname).unwrap();
-
-    populate_cold(&db, Verifier { v: None }).unwrap();
-    let ordered_specs = default_chainspecs();
-    let spec = ordered_specs
-        .into_iter()
-        .find(|spec| spec.specs.name == "westend")
-        .unwrap()
-        .specs;
-    let network_id = NetworkSpecsKey::from_parts(&spec.genesis_hash, &spec.encryption);
-    let seed_name = "Alice";
-
-    let derivation_path = "//imported";
-    try_create_imported_address(
-        &db,
-        seed_name,
-        ALICE_SEED_PHRASE,
-        derivation_path,
-        &network_id,
-    )
-    .unwrap();
-    let identities: Vec<(MultiSigner, AddressDetails)> =
-        get_addresses_by_seed_name(&db, seed_name).unwrap();
-
-    let (_, address_details) = identities
-        .iter()
-        .find(|(_, a)| a.path == derivation_path)
-        .unwrap();
-
-    assert!(address_details.was_imported);
 }
 
 #[test]
@@ -2153,7 +2115,7 @@ fn test_dynamic_derivations() {
     let derivation = result
         .key_set
         .derivations
-        .get(0)
+        .first()
         .expect("dynamic derivations is missing from result");
     assert_eq!(derivation.path, "//dd");
     assert_eq!(
@@ -2166,7 +2128,7 @@ fn test_dynamic_derivations() {
         DynamicDerivationsAddressResponse::V1(r) => {
             let key_set = r.addr;
             assert_eq!(key_set.dynamic_derivations.len(), 2);
-            let derivation_1 = key_set.dynamic_derivations.get(0).unwrap();
+            let derivation_1 = key_set.dynamic_derivations.first().unwrap();
             assert_eq!(derivation_1.derivation_path, "//dd");
             assert_eq!(
                 derivation_1.public_key,
@@ -2199,4 +2161,81 @@ fn test_dynamic_derivations() {
             );
         }
     }
+}
+
+#[test]
+fn test_assert_db_version() {
+    let dbname = tempdir().unwrap();
+    let db = sled::open(&dbname).unwrap();
+    populate_cold(&db, Verifier { v: None }).unwrap();
+    assert!(assert_db_version(&db).is_ok());
+}
+
+#[test]
+fn test_assert_empty_db_version() {
+    let dbname = tempdir().unwrap();
+    let db = sled::open(&dbname).unwrap();
+    assert!(matches!(
+        assert_db_version(&db),
+        Err(Error::DbSchemaMismatch { found: 0, .. })
+    ));
+}
+
+#[test]
+fn test_assert_wrong_db_version() {
+    let dbname = tempdir().unwrap();
+    let db = sled::open(&dbname).unwrap();
+    let mut batch = Batch::default();
+    batch.insert(SCHEMA_VERSION, u32::MAX.to_be_bytes().to_vec());
+    TrDbCold::new().set_settings(batch).apply(&db).unwrap();
+    assert!(matches!(
+        assert_db_version(&db),
+        Err(Error::DbSchemaMismatch {
+            found: u32::MAX,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn test_validate_key_password() {
+    let dbname = tempdir().unwrap();
+    let db = sled::open(&dbname).unwrap();
+    populate_cold_no_metadata(&db, Verifier { v: None }).unwrap();
+
+    let westend_hex = "01e143f23803ac50e8f6f8e62695d1ce9e4e1d68aa36c1cd2cfd15340213f3423e";
+    let westend_specs_key = NetworkSpecsKey::from_hex(westend_hex).unwrap();
+    create_key_set(
+        &db,
+        "Alice",
+        ALICE_SEED_PHRASE,
+        vec![westend_hex.to_string()],
+    )
+    .unwrap();
+    let address_key = AddressKey::from_parts(
+        &hex::decode("46ebddef8cd9bb167dc30878d7113b7e168e6f0646beffd77d69d39bad76b47a").unwrap(),
+        &Encryption::Sr25519,
+        None,
+    )
+    .unwrap();
+    assert!(validate_key_password(&db, &address_key, ALICE_SEED_PHRASE, "").unwrap());
+
+    try_create_address(
+        &db,
+        "Alice",
+        ALICE_SEED_PHRASE,
+        "//Alice///password",
+        &westend_specs_key,
+    )
+    .unwrap();
+
+    let ms = get_all_addresses(&db)
+        .unwrap()
+        .into_iter()
+        .find(|(_, a)| a.path == "//Alice")
+        .unwrap()
+        .0;
+    let address_key = AddressKey::new(ms, Some(westend_genesis()));
+    assert!(!validate_key_password(&db, &address_key, ALICE_SEED_PHRASE, "wrong_pass").unwrap());
+    assert!(validate_key_password(&db, &address_key, ALICE_SEED_PHRASE, "password").unwrap());
 }

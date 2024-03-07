@@ -17,8 +17,8 @@ struct AddDerivedKeysView: View {
             // Navigation Bar
             NavigationBarView(
                 viewModel: NavigationBarViewModel(
-                    leftButtons: [.init(type: .arrow, action: viewModel.onBackTap)],
-                    backgroundColor: Asset.backgroundPrimary.swiftUIColor
+                    leftButtons: [.init(type: .xmark, action: viewModel.onBackTap)],
+                    backgroundColor: .backgroundPrimary
                 )
             )
             GeometryReader { geo in
@@ -27,11 +27,11 @@ struct AddDerivedKeysView: View {
                         mainContent()
                         errorsSection()
                         keySets()
-                        qrCodeFooter()
+                        qrCodeSection()
                         Spacer()
-                        SecondaryButton(
-                            action: viewModel.onDoneTap(),
-                            text: Localizable.AddDerivedKeys.Action.done.key,
+                        ActionButton(
+                            action: viewModel.onMainActionTap,
+                            text: Localizable.AddDerivedKeys.Action.main.key,
                             style: .secondary()
                         )
                         .padding(Spacing.large)
@@ -42,26 +42,7 @@ struct AddDerivedKeysView: View {
                     )
                 }
             }
-            .background(Asset.backgroundPrimary.swiftUIColor)
-        }
-        .fullScreenModal(
-            isPresented: $viewModel.isPresentingError
-        ) {
-            ErrorBottomModal(
-                viewModel: viewModel.presentableError,
-                isShowingBottomAlert: $viewModel.isPresentingError
-            )
-            .clearModalBackground()
-        }
-        .fullScreenModal(
-            isPresented: $viewModel.isPresentingAddKeysConfirmation
-        ) {
-            VerticalActionsBottomModal(
-                viewModel: .confirmDerivedKeysCreation,
-                mainAction: viewModel.onConfirmTap(),
-                isShowingBottomAlert: $viewModel.isPresentingAddKeysConfirmation
-            )
-            .clearModalBackground()
+            .background(.backgroundPrimary)
         }
     }
 
@@ -83,11 +64,11 @@ struct AddDerivedKeysView: View {
     func mainContent() -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Localizable.AddDerivedKeys.Label.title.text
-                .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                .foregroundColor(.textAndIconsPrimary)
                 .font(PrimaryFont.titleL.font)
                 .padding(.top, Spacing.extraSmall)
             Localizable.AddDerivedKeys.Label.header.text
-                .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                .foregroundColor(.textAndIconsPrimary)
                 .font(PrimaryFont.bodyL.font)
                 .padding(.vertical, Spacing.extraSmall)
         }
@@ -102,27 +83,31 @@ struct AddDerivedKeysView: View {
                 viewModel.dataModel.keySets,
                 id: \.keySetName
             ) { keySet in
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    Text(keySet.keySetName)
-                        .font(PrimaryFont.titleS.font)
-                        .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
-                        .multilineTextAlignment(.leading)
-                        .padding(Spacing.medium)
-                    Divider()
-                        .padding(.horizontal, Spacing.medium)
-                    ForEach(
-                        keySet.derivedKeys,
-                        id: \.base58
-                    ) { key in
-                        derivedKey(for: key)
-                        if key != keySet.derivedKeys.last {
-                            Divider()
-                                .padding(.horizontal, Spacing.medium)
+                if !keySet.derivedKeys.isEmpty {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        Text(keySet.keySetName)
+                            .font(PrimaryFont.titleS.font)
+                            .foregroundColor(.textAndIconsPrimary)
+                            .multilineTextAlignment(.leading)
+                            .padding(Spacing.medium)
+                        Divider()
+                            .padding(.horizontal, Spacing.medium)
+                        ForEach(
+                            keySet.derivedKeys,
+                            id: \.base58
+                        ) { key in
+                            derivedKey(for: key)
+                            if key != keySet.derivedKeys.last {
+                                Divider()
+                                    .padding(.horizontal, Spacing.medium)
+                            }
                         }
                     }
+                    .containerBackground()
+                    .padding(.bottom, Spacing.extraSmall)
+                } else {
+                    EmptyView()
                 }
-                .containerBackground()
-                .padding(.bottom, Spacing.extraSmall)
             }
         }
         .padding(.horizontal, Spacing.medium)
@@ -134,19 +119,19 @@ struct AddDerivedKeysView: View {
             NetworkIdenticon(
                 identicon: key.identicon,
                 network: key.network,
-                background: Asset.fill6.swiftUIColor,
+                background: .fill6,
                 size: Heights.identiconInAddDerivedKey
             )
             .padding(.vertical, Spacing.medium)
             .padding(.trailing, Spacing.extraSmall)
             VStack(alignment: .leading, spacing: 0) {
                 Text(key.path)
-                    .foregroundColor(Asset.textAndIconsTertiary.swiftUIColor)
+                    .foregroundColor(.textAndIconsTertiary)
                     .font(PrimaryFont.captionM.font)
                 Spacer().frame(height: Spacing.extraExtraSmall)
                 HStack(spacing: Spacing.extraExtraSmall) {
                     Text(key.base58.truncateMiddle())
-                        .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                        .foregroundColor(.textAndIconsPrimary)
                         .font(PrimaryFont.bodyL.font)
                         .lineLimit(1)
                 }
@@ -157,12 +142,12 @@ struct AddDerivedKeysView: View {
     }
 
     @ViewBuilder
-    func qrCodeFooter() -> some View {
+    func qrCodeSection() -> some View {
         VStack(alignment: .leading, spacing: Spacing.medium) {
             // Header
-            Localizable.AddDerivedKeys.Label.footer.text
+            Localizable.AddDerivedKeys.Label.qrCodeHeader.text
                 .font(PrimaryFont.bodyL.font)
-                .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                .foregroundColor(.textAndIconsPrimary)
             // QR Code container
             VStack(alignment: .leading, spacing: 0) {
                 AnimatedQRCodeView(
@@ -188,64 +173,45 @@ extension AddDerivedKeysView {
 
     final class ViewModel: ObservableObject {
         private let onCompletion: (OnCompletionAction) -> Void
-        private let dynamicDerivationsPreview: DdPreview
-        private let derivedKeysService: CreateDerivedKeyService
         private let seedsMediator: SeedsMediating
+        let dynamicDerivationsPreview: DdPreview
         let dataModel: AddDerivedKeysData
         @Binding var isPresented: Bool
-        @Published var isPresentingAddKeysConfirmation: Bool = false
-        @Published var isPresentingDerivationPath: Bool = false
-        @Published var isPresentingError: Bool = false
-        @Published var presentableError: ErrorBottomModalViewModel = .importDynamicDerivedKeys(content: "")
 
         init(
             dataModel: AddDerivedKeysData,
             dynamicDerivationsPreview: DdPreview,
-            derivedKeysService: CreateDerivedKeyService = CreateDerivedKeyService(),
             seedsMediator: SeedsMediating = ServiceLocator.seedsMediator,
             isPresented: Binding<Bool>,
             onCompletion: @escaping (OnCompletionAction) -> Void
         ) {
             self.dataModel = dataModel
             self.dynamicDerivationsPreview = dynamicDerivationsPreview
-            self.derivedKeysService = derivedKeysService
             self.seedsMediator = seedsMediator
             _isPresented = isPresented
             self.onCompletion = onCompletion
         }
 
-        func onDoneTap() {
-            if !dynamicDerivationsPreview.keySet.derivations.isEmpty {
-                isPresentingAddKeysConfirmation = true
-            } else {
-                onSuccess()
-            }
+        func onMainActionTap() {
+            onSuccess()
         }
 
-        func onConfirmTap() {
-            derivedKeysService.createDerivedKeys(
-                dynamicDerivationsPreview.keySet.seedName,
-                seedsMediator.getSeed(seedName: dynamicDerivationsPreview.keySet.seedName),
-                keysToImport: dynamicDerivationsPreview.keySet.derivations
-            ) { [weak self] result in
-                switch result {
-                case .success:
-                    self?.onSuccess()
-                case let .failure(error):
-                    self?.presentableError = .importDynamicDerivedKeys(content: error.localizedDescription)
-                    self?.isPresentingError = true
-                }
-            }
+        func onAddCancelationTap() {
+            onCancel()
         }
 
         func onBackTap() {
-            isPresented = false
-            onCompletion(.onCancel)
+            onCancel()
         }
 
         private func onSuccess() {
             isPresented = false
             onCompletion(.onDone)
+        }
+
+        private func onCancel() {
+            isPresented = false
+            onCompletion(.onCancel)
         }
     }
 }

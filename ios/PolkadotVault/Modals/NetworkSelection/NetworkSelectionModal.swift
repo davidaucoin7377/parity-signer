@@ -13,7 +13,6 @@ struct NetworkSelectionModal: View {
     }
 
     @StateObject var viewModel: ViewModel
-    @EnvironmentObject private var appState: AppState
 
     var body: some View {
         FullScreenRoundedModal(
@@ -27,7 +26,7 @@ struct NetworkSelectionModal: View {
                     // Header with X button
                     HStack {
                         Localizable.NetworkFilter.Label.header.text
-                            .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                            .foregroundColor(.textAndIconsPrimary)
                             .font(PrimaryFont.titleS.font)
                         Spacer()
                         CloseModalButton(action: viewModel.resetAction)
@@ -41,11 +40,12 @@ struct NetworkSelectionModal: View {
 
                     // Bottom actions
                     HStack(spacing: Spacing.extraSmall) {
-                        SecondaryButton(
-                            action: viewModel.resetAction(),
-                            text: Localizable.NetworkFilter.Action.reset.key
+                        ActionButton(
+                            action: viewModel.resetAction,
+                            text: Localizable.NetworkFilter.Action.reset.key,
+                            style: .secondary()
                         )
-                        PrimaryButton(
+                        ActionButton(
                             action: viewModel.doneAction,
                             text: Localizable.NetworkFilter.Action.done.key,
                             style: .primary()
@@ -55,10 +55,6 @@ struct NetworkSelectionModal: View {
                 }
             }
         )
-        .onAppear {
-            viewModel.use(appState: appState)
-            viewModel.loadCurrentSelection()
-        }
     }
 
     @ViewBuilder
@@ -67,13 +63,14 @@ struct NetworkSelectionModal: View {
             NetworkLogoIcon(networkName: network.logo)
                 .padding(.trailing, Spacing.small)
             Text(network.title.capitalized)
-                .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                .foregroundColor(.textAndIconsPrimary)
                 .font(PrimaryFont.labelM.font)
             Spacer()
             if viewModel.isSelected(network) {
-                Asset.checkmarkChecked.swiftUIImage
+                Image(.checkmarkChecked)
+                    .foregroundColor(.accentPink300)
             } else {
-                Asset.checkmarkUnchecked.swiftUIImage
+                Image(.checkmarkUnchecked)
             }
         }
         .contentShape(Rectangle())
@@ -113,25 +110,21 @@ struct NetworkSelectionModal: View {
 
 extension NetworkSelectionModal {
     final class ViewModel: ObservableObject {
-        private weak var appState: AppState!
         @Published var animateBackground: Bool = false
-        @Published var networks: [MmNetwork] = []
-        @Published var selectedNetworks: [MmNetwork] = []
+        @Published var networksSelection: [MmNetwork]
+        @Binding var networks: [MmNetwork]
+        @Binding var selectedNetworks: [MmNetwork]
         @Binding var isPresented: Bool
 
         init(
-            isPresented: Binding<Bool>
+            isPresented: Binding<Bool>,
+            networks: Binding<[MmNetwork]>,
+            selectedNetworks: Binding<[MmNetwork]>
         ) {
             _isPresented = isPresented
-        }
-
-        func use(appState: AppState) {
-            self.appState = appState
-            networks = appState.userData.allNetworks
-        }
-
-        func loadCurrentSelection() {
-            selectedNetworks = appState.userData.selectedNetworks
+            _networks = networks
+            _selectedNetworks = selectedNetworks
+            _networksSelection = .init(initialValue: selectedNetworks.wrappedValue)
         }
 
         func cancelAction() {
@@ -139,24 +132,24 @@ extension NetworkSelectionModal {
         }
 
         func resetAction() {
-            appState.userData.selectedNetworks = []
+            selectedNetworks = []
             animateDismissal()
         }
 
         func doneAction() {
-            appState.userData.selectedNetworks = selectedNetworks
+            selectedNetworks = networksSelection
             animateDismissal()
         }
 
         func isSelected(_ network: MmNetwork) -> Bool {
-            selectedNetworks.contains(network)
+            networksSelection.contains(network)
         }
 
         func toggleSelection(_ network: MmNetwork) {
-            if selectedNetworks.contains(network) {
-                selectedNetworks.removeAll { $0 == network }
+            if networksSelection.contains(network) {
+                networksSelection.removeAll { $0 == network }
             } else {
-                selectedNetworks.append(network)
+                networksSelection.append(network)
             }
         }
 
@@ -178,9 +171,12 @@ extension NetworkSelectionModal {
 struct NetworkSelectionModal_Previews: PreviewProvider {
     static var previews: some View {
         NetworkSelectionModal(
-            viewModel: .init(isPresented: Binding<Bool>.constant(true))
+            viewModel: .init(
+                isPresented: Binding<Bool>.constant(true),
+                networks: .constant(MmNetwork.stubList),
+                selectedNetworks: .constant([.stub])
+            )
         )
-        .environmentObject(AppState.preview)
     }
 }
 #endif

@@ -13,16 +13,19 @@ struct AttributedInfoBoxView: View {
     var body: some View {
         HStack {
             Text(text)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .lineLimit(nil)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer().frame(maxWidth: Spacing.medium)
-            Asset.helpOutline.swiftUIImage
-                .foregroundColor(Asset.accentPink300.swiftUIColor)
+            Image(.helpOutline)
+                .foregroundColor(.accentPink300)
         }
         .padding()
+        .frame(maxWidth: .infinity)
         .font(PrimaryFont.bodyM.font)
         .background(
             RoundedRectangle(cornerRadius: CornerRadius.small)
-                .stroke(Asset.fill12.swiftUIColor, lineWidth: 1)
+                .stroke(.fill12, lineWidth: 1)
                 .cornerRadius(CornerRadius.small)
         )
     }

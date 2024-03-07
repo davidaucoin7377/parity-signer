@@ -13,16 +13,19 @@ struct AttributedTintInfoBox: View {
     var body: some View {
         HStack {
             Text(text)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .lineLimit(nil)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer().frame(width: Spacing.large)
-            Asset.helpOutline.swiftUIImage
-                .foregroundColor(Asset.accentPink300.swiftUIColor)
+            Image(.helpOutline)
+                .foregroundColor(.accentPink300)
         }
         .padding(Spacing.medium)
+        .frame(maxWidth: .infinity)
         .font(PrimaryFont.bodyM.font)
         .background(
             RoundedRectangle(cornerRadius: CornerRadius.medium)
-                .foregroundColor(Asset.accentPink300Fill8.swiftUIColor)
+                .foregroundColor(.accentPink300Fill8)
         )
     }
 }

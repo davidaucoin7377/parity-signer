@@ -33,8 +33,8 @@ public final class IdenticonColorsGenerator {
     func deriveColors(from inputData: [UInt8]) -> [Color] {
         let zeroBytes = Array(repeating: UInt8(0), count: Constants.arrayZeroBytesLength)
 
-        guard let hashedInput = try? Blake2.hash(.b2b, size: Constants.byteHashLength, bytes: inputData),
-              let hashedZeroBytes = try? Blake2.hash(.b2b, size: Constants.byteHashLength, bytes: zeroBytes) else {
+        guard let hashedInput = try? Blake2b.hash(size: Constants.byteHashLength, data: inputData),
+              let hashedZeroBytes = try? Blake2b.hash(size: Constants.byteHashLength, data: zeroBytes) else {
             return []
         }
 
@@ -70,7 +70,7 @@ public final class IdenticonColorsGenerator {
     private func deriveColors(derivedID: [UInt8]) -> [Color] {
         // Calculate saturation component using 29th byte of the derived ID.
         let sat = UInt8((((UInt(derivedID[29]) * 70) / 256 + 26) % 80) + 30)
-        let saturationComponent: Double = Double(sat) / 100.0
+        let saturationComponent = Double(sat) / 100.0
 
         // Generate palette of colors using derived ID and saturation component.
         return derivedID
@@ -103,7 +103,7 @@ public final class IdenticonColorsGenerator {
         let lightnessIndex = byte / lightnessIndexFactor
         let lightnessPercentage = lightnessIndex < Constants.lightnessPercentages.count ? Constants
             .lightnessPercentages[Int(lightnessIndex)] : 0
-        let lightnessComponent: Double = Double(lightnessPercentage) / 100.0
+        let lightnessComponent = Double(lightnessPercentage) / 100.0
         let (red, green, blue) = hslToRgb(
             hue: Double(hue),
             saturation: saturationComponent,
@@ -144,9 +144,9 @@ public final class IdenticonColorsGenerator {
         saturation: Double,
         lightness: Double
     ) -> (red: UInt8, green: UInt8, blue: UInt8) {
-        var redComponent: Double = 0.0
-        var greenComponent: Double = 0.0
-        var blueComponent: Double = 0.0
+        var redComponent = 0.0
+        var greenComponent = 0.0
+        var blueComponent = 0.0
 
         let normalizedHue = hue / 360.0
 

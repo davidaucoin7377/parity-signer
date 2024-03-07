@@ -24,28 +24,29 @@ struct ActionableInfoBoxView: View {
         VStack(alignment: .leading, spacing: Spacing.medium) {
             HStack {
                 Text(renderable.text)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
-                    .font(PrimaryFont.bodyM.font)
+                    .lineLimit(nil)
+                    .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
+                    .foregroundColor(.textAndIconsPrimary)
+                    .font(PrimaryFont.bodyM.font)
                 Spacer().frame(maxWidth: Spacing.medium)
-                Asset.infoIconBold.swiftUIImage
-                    .foregroundColor(Asset.accentPink300.swiftUIColor)
+                Image(.infoIconBold)
+                    .foregroundColor(.accentPink300)
                     .padding(.leading, Spacing.medium)
             }
-            if let action = action {
+            if let action {
                 Text(action.name)
-                    .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                    .foregroundColor(.textAndIconsPrimary)
                     .font(PrimaryFont.labelS.font)
                     .padding(.vertical, Spacing.extraSmall)
                     .padding(.horizontal, Spacing.medium)
-                    .background(Asset.fill6.swiftUIColor)
+                    .background(.fill6)
                     .clipShape(Capsule())
                     .onTapGesture { action.action() }
             }
         }
-
         .padding(Spacing.medium)
+        .frame(maxWidth: .infinity)
         .containerBackground(CornerRadius.small, state: .actionableInfo)
     }
 }

@@ -24,7 +24,7 @@ import io.parity.signer.domain.isDbCreatedAndOnboardingPassed
 import io.parity.signer.screens.initial.eachstartchecks.airgap.AirgapScreen
 import io.parity.signer.screens.initial.eachstartchecks.rootcheck.RootExposedScreen
 import io.parity.signer.screens.initial.eachstartchecks.screenlock.SetScreenLockScreen
-import io.parity.signer.ui.MainGraphRoutes
+import io.parity.signer.ui.rootnavigation.MainGraphRoutes
 
 
 fun NavGraphBuilder.enableEachStartAppFlow(globalNavController: NavHostController) {
@@ -33,7 +33,7 @@ fun NavGraphBuilder.enableEachStartAppFlow(globalNavController: NavHostControlle
 		val context: Context = LocalContext.current
 
 		val goToNextFlow: Callback = {
-			globalNavController.navigate(MainGraphRoutes.initialUnlockRoute) {
+			globalNavController.navigate(MainGraphRoutes.mainScreenRoute) {
 				popUpTo(0)
 			}
 		}
@@ -42,7 +42,7 @@ fun NavGraphBuilder.enableEachStartAppFlow(globalNavController: NavHostControlle
 			mutableStateOf(
 				if (viewModel.isDeviceRooted()) {
 					EachStartSubgraphScreenSteps.ROOT_EXPOSED
-				} else if (!viewModel.checkIsAuthPossible(context)) {
+				} else if (!viewModel.isAuthPossible(context)) {
 					EachStartSubgraphScreenSteps.SET_SCREEN_LOCK_BLOCKER
 				} else if (viewModel.networkState.value == NetworkState.Active || !context.isDbCreatedAndOnboardingPassed()){
 					EachStartSubgraphScreenSteps.AIR_GAP
@@ -67,7 +67,7 @@ fun NavGraphBuilder.enableEachStartAppFlow(globalNavController: NavHostControlle
 					DisposableEffect(this) {
 						val observer = LifecycleEventObserver { _, event ->
 							if (event.targetState == Lifecycle.State.RESUMED) {
-								if (viewModel.checkIsAuthPossible(context)) {
+								if (viewModel.isAuthPossible(context)) {
 									state.value = EachStartSubgraphScreenSteps.AIR_GAP
 								}
 							}
@@ -80,7 +80,7 @@ fun NavGraphBuilder.enableEachStartAppFlow(globalNavController: NavHostControlle
 					SetScreenLockScreen()
 				}
 				EachStartSubgraphScreenSteps.AIR_GAP -> {
-					AirgapScreen {
+					AirgapScreen(isInitialOnboarding = true) {
 						//go to next screen
 						goToNextFlow()
 					}

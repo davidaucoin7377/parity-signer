@@ -25,10 +25,15 @@ struct LogEntryRenderable: Equatable, Hashable, Identifiable {
     let navigationDetails: UInt32
 }
 
-final class LogEntryRenderableBuilder {
+// sourcery: AutoMockable
+protocol LogEntryRenderableBuilding: AnyObject {
+    func build(_ logs: MLog) -> [LogEntryRenderable]
+}
+
+final class LogEntryRenderableBuilder: LogEntryRenderableBuilding {
     func build(_ logs: MLog) -> [LogEntryRenderable] {
         var lastDate: String?
-        var shouldIncludeDate: Bool = false
+        var shouldIncludeDate = false
         var result: [LogEntryRenderable] = []
         // Used to retrieve data index for navigation...
         logs.log.forEach { historyItem in

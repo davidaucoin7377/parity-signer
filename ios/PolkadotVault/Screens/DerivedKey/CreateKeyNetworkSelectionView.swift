@@ -13,36 +13,54 @@ struct CreateKeyNetworkSelectionView: View {
     @Environment(\.presentationMode) var presentationMode
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Navigation Bar
-            NavigationBarView(
-                viewModel: NavigationBarViewModel(
-                    title: .subtitle(
-                        title: Localizable.CreateDerivedKey.Label.title.string,
-                        subtitle: Localizable.CreateDerivedKey.Label.subtitle.string
-                    ),
-                    leftButtons: [.init(
-                        type: .xmark,
-                        action: { presentationMode.wrappedValue.dismiss() }
-                    )],
-                    backgroundColor: Asset.backgroundPrimary.swiftUIColor
+        GeometryReader { geo in
+            VStack(alignment: .leading, spacing: 0) {
+                // Navigation Bar
+                NavigationBarView(
+                    viewModel: NavigationBarViewModel(
+                        title: .title(Localizable.CreateDerivedKey.Label.title.string),
+                        leftButtons: [.init(
+                            type: .xmark,
+                            action: { presentationMode.wrappedValue.dismiss() }
+                        )],
+                        backgroundColor: .backgroundPrimary
+                    )
                 )
-            )
-            .padding(.bottom, Spacing.extraSmall)
-            // Content
-            Localizable.CreateDerivedKey.Label.header.text
-                .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
-                .font(PrimaryFont.bodyL.font)
-                .padding(.horizontal, Spacing.large)
-                .padding(.bottom, Spacing.small)
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
-                    networkSelection()
-                        .padding(Spacing.extraSmall)
-                    footer()
-                        .padding(Spacing.medium)
+                .padding(.bottom, Spacing.extraSmall)
+                // Content
+                Localizable.CreateDerivedKey.Label.header.text
+                    .foregroundColor(.textAndIconsPrimary)
+                    .font(PrimaryFont.bodyL.font)
+                    .padding(.horizontal, Spacing.large)
+                    .padding(.bottom, Spacing.small)
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        networkSelection()
+                            .padding(Spacing.extraSmall)
+                        footer()
+                            .padding(Spacing.medium)
+                    }
                 }
+                Spacer()
+                VStack(alignment: .center, spacing: Spacing.small) {
+                    ActionButton(
+                        action: viewModel.didTapCreate,
+                        text: Localizable.CreateDerivedKey.Action.create.key,
+                        style: .primary(isDisabled: .constant(viewModel.networkSelection == nil))
+                    )
+                    ActionButton(
+                        action: viewModel.didTapAddCustom,
+                        text: Localizable.CreateDerivedKey.Action.addCustom.key,
+                        style: .emptyPrimary(isDisabled: .constant(viewModel.networkSelection == nil))
+                    )
+                }
+                .padding(.horizontal, Spacing.large)
+                .padding(.bottom, Spacing.large)
             }
+            .frame(
+                minWidth: geo.size.width,
+                minHeight: geo.size.height
+            )
             // Navigation Links
             NavigationLink(
                 destination: DerivationPathNameView(
@@ -52,13 +70,12 @@ struct CreateKeyNetworkSelectionView: View {
                 isActive: $viewModel.isPresentingDerivationPath
             ) { EmptyView() }
         }
-        .background(Asset.backgroundPrimary.swiftUIColor)
+        .background(.backgroundPrimary)
         .onReceive(viewModel.dismissViewRequest) { _ in
             presentationMode.wrappedValue.dismiss()
         }
         .fullScreenModal(
-            isPresented: $viewModel.isNetworkTutorialPresented,
-            onDismiss: viewModel.updateNetworks
+            isPresented: $viewModel.isNetworkTutorialPresented
         ) {
             NavigationView {
                 AddKeySetUpNetworksStepOneView(viewModel: .init())
@@ -84,8 +101,10 @@ struct CreateKeyNetworkSelectionView: View {
                 id: \.key
             ) {
                 item(for: $0)
-                Divider()
-                    .padding(.horizontal, Spacing.medium)
+                if $0 != viewModel.networks.last {
+                    Divider()
+                        .padding(.horizontal, Spacing.medium)
+                }
             }
         }
         .containerBackground()
@@ -97,12 +116,16 @@ struct CreateKeyNetworkSelectionView: View {
             NetworkLogoIcon(networkName: network.logo)
                 .padding(.trailing, Spacing.small)
             Text(network.title.capitalized)
-                .foregroundColor(Asset.textAndIconsPrimary.swiftUIColor)
+                .foregroundColor(.textAndIconsPrimary)
                 .font(PrimaryFont.titleS.font)
             Spacer()
-            Asset.chevronRight.swiftUIImage
-                .foregroundColor(Asset.textAndIconsTertiary.swiftUIColor)
-                .padding(.trailing, Spacing.extraSmall)
+            if viewModel.networkSelection == network {
+                Image(.checkmarkList)
+                    .foregroundColor(.accentPink)
+                    .frame(width: Sizes.checkmarkCircleButton, height: Sizes.checkmarkCircleButton)
+                    .background(.fill6)
+                    .clipShape(Circle())
+            }
         }
         .contentShape(Rectangle())
         .padding(.horizontal, Spacing.medium)
@@ -120,17 +143,21 @@ extension CreateKeyNetworkSelectionView {
 
     final class ViewModel: ObservableObject {
         private let cancelBag = CancelBag()
-        private let networkService: GetAllNetworksService
+        private let networkService: GetManagedNetworksServicing
         private let keyName: String
-        private let createKeyService: CreateDerivedKeyService
+        private let createKeyService: CreateDerivedKeyServicing
         private let keySet: MKeysNew
         let seedName: String
         @Published var isPresentingDerivationPath: Bool = false
         @Published var networks: [MmNetwork] = []
-        @Published var networkSelection: MmNetwork!
+        @Published var networkSelection: MmNetwork?
 
         // Tutorial
         @Published var isNetworkTutorialPresented: Bool = false
+
+        // Error handling
+        @Published var isPresentingError: Bool = false
+        @Published var presentableError: ErrorBottomModalViewModel!
 
         var dismissViewRequest: AnyPublisher<Void, Never> {
             dismissRequest.eraseToAnyPublisher()
@@ -143,8 +170,8 @@ extension CreateKeyNetworkSelectionView {
             seedName: String,
             keyName: String,
             keySet: MKeysNew,
-            networkService: GetAllNetworksService = GetAllNetworksService(),
-            createKeyService: CreateDerivedKeyService = CreateDerivedKeyService(),
+            networkService: GetManagedNetworksServicing = GetManagedNetworksService(),
+            createKeyService: CreateDerivedKeyServicing = CreateDerivedKeyService(),
             onCompletion: @escaping (OnCompletionAction) -> Void
         ) {
             self.seedName = seedName
@@ -158,13 +185,24 @@ extension CreateKeyNetworkSelectionView {
         }
 
         func selectNetwork(_ network: MmNetwork) {
-            networkSelection = network
-            isPresentingDerivationPath = true
+            networkSelection = networkSelection == network ? nil : network
         }
 
-        private func onKeyCreationComplete() {
-            onCompletion(.derivedKeyCreated)
-            dismissRequest.send()
+        func didTapCreate() {
+            guard let networkSelection else { return }
+            createKeyService.createDefaultDerivedKey(keySet, keyName, networkSelection) { result in
+                switch result {
+                case .success:
+                    self.onKeyCreationComplete()
+                case let .failure(error):
+                    self.presentableError = .alertError(message: error.localizedDescription)
+                    self.isPresentingError = true
+                }
+            }
+        }
+
+        func didTapAddCustom() {
+            isPresentingDerivationPath = true
         }
 
         func onInfoBoxTap() {
@@ -175,7 +213,8 @@ extension CreateKeyNetworkSelectionView {
             .init(
                 seedName: seedName,
                 keySet: keySet,
-                networkSelection: networkSelection,
+                // swiftlint: disable:next force_unwrapping
+                networkSelection: networkSelection!,
                 onComplete: onKeyCreationComplete
             )
         }
@@ -191,13 +230,19 @@ private extension CreateKeyNetworkSelectionView.ViewModel {
         }
     }
 
+    func onKeyCreationComplete() {
+        onCompletion(.derivedKeyCreated)
+        dismissRequest.send()
+    }
+
     func listenToChanges() {
-        $isNetworkTutorialPresented.sink { [weak self] isPresented in
-            guard let self = self, !isPresented else { return }
-            self.createKeyService.resetNavigationState(self.keyName)
-            self.updateNetworks()
-        }
-        .store(in: cancelBag)
+        $isNetworkTutorialPresented
+            .dropFirst()
+            .sink { [weak self] isPresented in
+                guard let self, !isPresented else { return }
+                updateNetworks()
+            }
+            .store(in: cancelBag)
     }
 }
 

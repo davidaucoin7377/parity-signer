@@ -21,15 +21,6 @@ struct VerticalActionsBottomModalViewModel {
         dismissActionLabel: Localizable.Settings.Modal.GeneralVerifier.Action.cancel.key,
         mainActionLabel: Localizable.Settings.Modal.GeneralVerifier.Action.remove.key
     )
-
-    static let confirmDerivedKeysCreation = VerticalActionsBottomModalViewModel(
-        title: Localizable.AddDerivedKeys.Modal.Label.title.string,
-        content: Localizable.AddDerivedKeys.Modal.Label.content.string,
-        dismissActionLabel: Localizable.AddDerivedKeys.Modal.Action.cancel.key,
-        mainActionLabel: Localizable.AddDerivedKeys.Modal.Action.confirm.key,
-        mainActionStyle: .primary(),
-        contentAlignment: .center
-    )
 }
 
 struct VerticalActionsBottomModal: View {
@@ -66,17 +57,18 @@ struct VerticalActionsBottomModal: View {
                             .font(PrimaryFont.bodyL.font)
                             .lineSpacing(Spacing.extraExtraSmall)
                             .multilineTextAlignment(viewModel.contentAlignment)
-                            .foregroundColor(Asset.textAndIconsSecondary.swiftUIColor)
+                            .foregroundColor(.textAndIconsSecondary)
                     }
                     VStack {
-                        PrimaryButton(
+                        ActionButton(
                             action: { animateDismissal(mainAction()) },
                             text: viewModel.mainActionLabel,
                             style: viewModel.mainActionStyle
                         )
-                        SecondaryButton(
-                            action: animateDismissal(dismissAction()),
-                            text: viewModel.dismissActionLabel
+                        ActionButton(
+                            action: { animateDismissal(dismissAction()) },
+                            text: viewModel.dismissActionLabel,
+                            style: .secondary()
                         )
                     }
                     .padding(.top, Spacing.extraSmall)

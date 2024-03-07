@@ -37,7 +37,6 @@
 	<string name="bottom_bar_label_scanner">Scanner</string>
 	<string name="bottom_bar_label_settings">Settings</string>
 	<string name="key_set_multiselect_title_none_selected">Select Key Set</string>
-	<string name="key_set_details_multiselect_title_none_selected">Select Keys</string>
 	<string name="key_set_export_all_label">Export All</string>
 	<string name="key_set_export_selected_label">Export Selected</string>
 	<string name="key_set_export_description_content">By scanning this QR code into your application you’ll export all keys from the Key Sets shown in the list below</string>
@@ -272,6 +271,7 @@
 	<string name="import_derivations_failure_toast">Import Keys Has Failed</string>
 	<string name="import_derivations_failure_update_toast">Import Keys Has Failed. Update keys failed.</string>
 	<string name="create_derivations_success">Derived key successfully created.</string>
+	<string name="create_derivations_empty">All derived keys already added</string>
 	<string name="create_derivations_failure">Derivation key failure: %1$s</string>
 	<string name="unlock_screen_title">Please Unlock the App</string>
 	<string name="unlock_screen_description">The device has been locked because of failed authentication, please unlock the device to keep using the Polkadot Vault</string>
@@ -279,7 +279,7 @@
 	<string name="key_sets_empty_title">You Don\'t Have Any Key Sets</string>
 	<string name="key_sets_empty_message">Add a new Key Set to Store Keys and Sign Transactions</string>
 	<string name="screen_lock_title">Set Up Screen Lock</string>
-	<string name="screen_lock_description">Any operation in Signer requires user authentication via pin, pattern or fingerprint. Please enable screen lock to set up those in your android. Using the application without a screen lock is not allowed.</string>
+	<string name="screen_lock_description">Any operation in Signer requires user authentication via pin or pattern. Please enable screen lock to set up those in your android. Using the application without a screen lock is not allowed.</string>
 	<string name="screen_lock_open_settings_button">Go to Settings</string>
 	<string name="documents_terms_of_service">Terms of service</string>
 	<string name="documents_privacy_policy">Privacy policy</string>
@@ -289,12 +289,14 @@
 	<string name="root_exposed_title">Please try again with not Rooted device</string>
 	<string name="root_exposed_description">We’ve detected that this Device Has Been Rooted and Isn’t Safe to Use. Please try again with another device</string>
 	<string name="airgap_onboarding_disconnect_cable_header">Disconnect all cables</string>
-	<string name="airgap_onboarding_title">Set Up Air Gap Mode</string>
-	<string name="airgap_onboarding_subtitle">Please Follow these steps to enable Air Gap mode and keep it enabled all the time</string>
+	<string name="airgap_onboarding_title_onboarding">Set Up Air Gap Mode</string>
+	<string name="airgap_onboarding_subtitle_onboarding">Please Follow these steps to enable Air Gap mode and keep it enabled all the time</string>
+	<string name="airgap_onboarding_title">Please Enable Air Gap Mode</string>
+	<string name="airgap_onboarding_subtitle">Please follow these steps to enable Air Gap mode and keep it permanently enabled.</string>
 	<string name="airgap_onboarding_wifi_header">Turn off Wifi Connection</string>
 	<string name="airgap_onboarding_bluetooth_header">Turn off Bluetooth</string>
 	<string name="airgap_onboarding_airplane_mode_header">Enable Airplane Mode</string>
-	<string name="airgap_onboarding_disconnect_cable_checkbox_description">I confirm that all Cables are Disconnected</string>
+	<string name="airgap_onboarding_usb_disconnect_description">Disconnect USB cable</string>
 	<string name="settings_confirmation_wipe_all_message">Remove all data and set general verifier information blank. \n\n%1$s This operation cannot be reversed so do not proceed unless you are sure you wish to erase important verification information. In most cases, there is no need to wipe all data. Using this feature inappropriately may lead to loss of funds!</string>
 	<string name="settings_confirmation_wipe_all_message_highlited_warning">Warning:</string>
 	<string name="settings_confirmation_wipe_all_title">Wipe All Data?</string>
@@ -394,7 +396,7 @@
 	<string name="recovert_key_set_name_hint">Key Set Name Visible Only to You</string>
 	<string name="new_key_set_name_placeholder">Enter Key Set Name</string>
 	<string name="recover_key_set_phrase_title">Enter a Secret Recovery Phrase</string>
-	<string name="recover_key_set_phrase_subtitle">Enter a 24-word phrase you were given when you created your key set</string>
+	<string name="recover_key_set_phrase_subtitle">Enter seed phrase you were given when you created your key set</string>
 	<string name="enter_seed_phease_box_placeholder">Enter Secret Recovery Phrase</string>
 	<string name="key_set_has_been_recovered_toast">"%1$s Key Set Has Been Recovered"</string>
 	<string name="key_set_has_been_created_toast">"%1$s Key Set Has Been Created"</string>
@@ -415,9 +417,8 @@
 	<string name="create_derivation_title">Create Derived Key</string>
 	<string name="public_key_bottom_sheet_label">Public key</string>
 	<string name="add_derived_keys_screen_title">Add Derived Keys</string>
-	<string name="add_derived_keys_screen_subtitle">Сheck the keys and scan QR code into Omni Wallet app</string>
+	<string name="add_derived_keys_screen_subtitle">Сheck the keys, scan QR code into the app and confirm adding keys by pressing the button below</string>
 	<string name="add_derived_keys_screen_scan_qr_code">Scan QR code to add the keys</string>
-	<string name="dynamic_derivation_path_label">Imported from Omni Wallet</string>
 	<string name="generic_clear_selection">Clear</string>
 	<string name="network_filters_header">Filter keys by network</string>
 	<string name="key_set_details_all_filtered_keys_title">Key Set has no Keys on Selected Network</string>
@@ -425,7 +426,33 @@
 	<string name="dymanic_derivation_error_some_network_missing">"Some keys can not be imported until their networks are added. Please add missing networks and their metadata. "</string>
 	<string name="dymanic_derivation_error_custom_message">Derived key %1$s could not be created: %2$s</string>
 	<string name="dymanic_derivation_error_custom_title">There was an issue importing keys.</string>
-
+  <string name="sign_specs_keys_list_title">Select key for signing specs</string>
+	<string name="sign_specs_result_title">Specs signature</string>
+  <string name="error_state_screen_title">Error state screen</string>
+	<string name="error_state_screen_verbose_subtitle">Verbose details:</string>
+	<string name="sign_spes_result_specs_lable">Specs</string>
+	<string name="sign_specs_load_metadata_label">Metadata for %1$s with version %2$s</string>
+	<string name="sign_specs_load_types_label">Types %1$s</string>
+	<string name="sign_specs_error_signing_title">Error in signing specs</string>
+	<string name="attempts_exceeded_title">Attempts exceeded</string>
+	<string name="attempts_exceeded_message">Many password attempts failed</string>
+	<string name="generic_close_button">Close</string>
+  <string name="description_check_botton">Check botton</string>
+	<string name="description_scan_icon">Scan icon</string>
+  <string name="derivation_create_fast_cta">Create Key</string>
+	<string name="derivation_create_advanced_cta">Add Custom Derivation Path</string>
+	<string name="error_wrong_version_title">Upgrade your Polkadot Vault according the requirements</string>
+	<string name="error_wrong_version_description">"The new version has been installed with the air gap break. Your keys are safe, to continue using Polkadot Vault, you must upgrade your app according to the requirements. "</string>
+	<string name="error_wrong_version_backup_cta">Backup Secret Phrase</string>
+	<string name="error_version_helper_link">paritytech.github.io/parity-signer/tutorials/Upgrading.html</string>
+	<string name="error_version_helper_description">"Find the latest Polkadot Vault upgrade information here "</string>
+	<string name="fallback_recovery_phrase_title">Select Key Set</string>
+	<string name="fallback_recovery_phrase_description">Select a key set you want to Expose a Secret Recovery Phrase for</string>
+	<string name="initial_screen_outdated_os_title">Please update your operation system for higher security</string>
+	<string name="initial_screen_outdated_os_description">Current Android version missing important security updated, exposed to at least: %1$s. It is recommended to install vault on up to date android version.</string>
+	<string name="airgap_onboarding_adb_disable">Disable ADB on the device</string>
+    <string name="error_secure_storage_title">Couldn\'t open secure storage</string>
+	<string name="error_secure_storage_description">There was an error during opening secure storage. Possible reasons - device unlock method was changed. Error below</string>
 
 </resources>
 

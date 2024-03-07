@@ -22,8 +22,7 @@ extension MKeysCard {
         address: .stub,
         addressKey: "",
         base58: "",
-        swiped: false,
-        wasImported: false
+        swiped: false
     )
 }
 
@@ -65,8 +64,7 @@ extension MKeyDetails {
         pubkey: "",
         networkInfo: .stub,
         address: .stub,
-        base58: "",
-        wasImported: false
+        base58: ""
     )
 }
 
@@ -431,5 +429,14 @@ extension DdPreview {
         keySet: .stub,
         isSomeAlreadyImported: true,
         isSomeNetworkMissing: true
+    )
+}
+
+extension MRawKey {
+    static let stub: MRawKey = .init(
+        address: .stub,
+        addressKey: "addressKey",
+        publicKey: "publicKey",
+        networkLogo: "polkadot"
     )
 }

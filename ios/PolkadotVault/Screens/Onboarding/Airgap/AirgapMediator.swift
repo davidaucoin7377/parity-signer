@@ -14,6 +14,7 @@ enum AirgapComponent: Equatable, Hashable {
     case wifi
 }
 
+// sourcery: AutoMockable
 protocol AirgapMediating: AnyObject {
     func startMonitoringAirgap(_ update: @escaping (Bool, Bool) -> Void)
 }
@@ -38,12 +39,12 @@ final class AirgapMediator: AirgapMediating {
 
     func startMonitoringAirgap(_ update: @escaping (Bool, Bool) -> Void) {
         adaptee.pathUpdateHandler = { [weak self] path in
-            guard let self = self else { return }
+            guard let self else { return }
             let isWifiOn: Bool = path.usesInterfaceType(.wifi)
             var currentInterfaces = path.availableInterfaces
             currentInterfaces.removeAll(where: { $0.type == .wifi })
             let isAirplaneModeOn = currentInterfaces.isEmpty
-            self.notificationQueue.async {
+            notificationQueue.async {
                 update(isAirplaneModeOn, isWifiOn)
             }
         }

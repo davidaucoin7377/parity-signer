@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
@@ -23,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -99,14 +101,15 @@ fun ScreenHeader(
 
 @Composable
 fun ScreenHeaderClose(
-	title: String,
+	title: String?,
 	subtitle: String? = null,
 	onClose: Callback,
 	onMenu: Callback? = null,
 	differentMenuIcon: ImageVector? = null,
+	modifier: Modifier = Modifier,
 ) {
 	Row(
-		modifier = Modifier
+		modifier = modifier
 			.fillMaxWidth(1f)
 			.defaultMinSize(minHeight = 56.dp)
 	) {
@@ -116,6 +119,7 @@ fun ScreenHeaderClose(
 			colorFilter = ColorFilter.tint(MaterialTheme.colors.primary),
 			modifier = Modifier
 				.padding(horizontal = 8.dp)
+				.clip(CircleShape)
 				.clickable(onClick = onClose)
 				.padding(8.dp)
 				.size(24.dp)
@@ -127,13 +131,17 @@ fun ScreenHeaderClose(
 				.align(Alignment.CenterVertically)
 				.weight(1f)
 		) {
-			Text(
-				text = title,
-				color = MaterialTheme.colors.primary,
-				style = SignerTypeface.TitleS,
-				textAlign = TextAlign.Center,
-				modifier = Modifier.fillMaxWidth(1f),
-			)
+			if (title != null) {
+				Text(
+					text = title,
+					color = MaterialTheme.colors.primary,
+					style = SignerTypeface.TitleS,
+					textAlign = TextAlign.Center,
+					modifier = Modifier.fillMaxWidth(1f),
+				)
+			} else {
+				Spacer(modifier = Modifier.weight(1f))
+			}
 			if (subtitle != null) {
 				Text(
 					text = subtitle,
@@ -152,6 +160,7 @@ fun ScreenHeaderClose(
 				colorFilter = ColorFilter.tint(MaterialTheme.colors.primary),
 				modifier = Modifier
 					.padding(horizontal = 8.dp)
+					.clip(CircleShape)
 					.clickable(onClick = onMenu)
 					.padding(8.dp)
 					.size(24.dp)
@@ -308,15 +317,15 @@ fun ScreenHeaderProgressWithButton(
 		Box(
 			contentAlignment = Alignment.CenterEnd,
 		) {
-				PrimaryButtonGreyDisabled(
-					label = btnText,
-					isEnabled = canProceed,
-					modifier = Modifier.alpha(if (onButton == null) 0f else 1f)
-				) {
-					if (canProceed) {
-						onButton?.invoke()
-					}
+			PrimaryButtonGreyDisabled(
+				label = btnText,
+				isEnabled = canProceed,
+				modifier = Modifier.alpha(if (onButton == null) 0f else 1f)
+			) {
+				if (canProceed) {
+					onButton?.invoke()
 				}
+			}
 		}
 	}
 }
@@ -365,11 +374,52 @@ private fun PreviewScreenBaseComponent() {
 				onClose = {},
 				onMenu = {},
 			)
-			ScreenHeaderWithButton(true, "Derivation", null, null, true, Modifier, {}, {})
-			ScreenHeaderWithButton(true, "Derivation", null, null, false, Modifier, {}, {})
-			ScreenHeaderWithButton(false, "Derivation", null, null, false, Modifier, {}, {})
-			ScreenHeaderWithButton(true, "Derivation", "subtitle", null, true, Modifier, {}, {})
-			ScreenHeaderWithButton(true, "Derivation", "subtitle", null, true, Modifier, {}, null)
+			ScreenHeaderWithButton(
+				true,
+				"Derivation",
+				null,
+				null,
+				true,
+				Modifier,
+				{},
+				{})
+			ScreenHeaderWithButton(
+				true,
+				"Derivation",
+				null,
+				null,
+				false,
+				Modifier,
+				{},
+				{})
+			ScreenHeaderWithButton(
+				false,
+				"Derivation",
+				null,
+				null,
+				false,
+				Modifier,
+				{},
+				{})
+			ScreenHeaderWithButton(
+				true,
+				"Derivation",
+				"subtitle",
+				null,
+				true,
+				Modifier,
+				{},
+				{})
+			ScreenHeaderWithButton(
+				true,
+				"Derivation",
+				"subtitle",
+				null,
+				true,
+				Modifier,
+				{},
+				null
+			)
 
 			ScreenHeaderClose(
 				stringResource(id = R.string.key_sets_screem_title),

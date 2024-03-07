@@ -15,13 +15,12 @@ struct SettingsRowView: View {
             Text(renderable.title)
                 .font(PrimaryFont.titleS.font)
                 .foregroundColor(
-                    renderable.isDestructive ? Asset.accentRed400.swiftUIColor : Asset.textAndIconsPrimary
-                        .swiftUIColor
+                    renderable.isDestructive ? .accentRed400 : .textAndIconsPrimary
                 )
             Spacer()
             if renderable.hasDetails {
-                Asset.chevronRight.swiftUIImage
-                    .foregroundColor(Asset.textAndIconsTertiary.swiftUIColor)
+                Image(.chevronRight)
+                    .foregroundColor(.textAndIconsTertiary)
             }
         }
         .padding(.horizontal, Spacing.large)
@@ -30,8 +29,7 @@ struct SettingsRowView: View {
     }
 }
 
-struct SettingsRowRenderable: Equatable, Identifiable {
-    let id = UUID()
+struct SettingsRowRenderable: Equatable, Hashable {
     let item: SettingsItem
     let title: String
     let isDestructive: Bool
