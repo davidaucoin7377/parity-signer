@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["generate_message",[["impl ValueEnum for <a class=\"enum\" href=\"generate_message/parser/enum.Goal.html\" title=\"enum generate_message::parser::Goal\">Goal</a>"],["impl ValueEnum for <a class=\"enum\" href=\"generate_message/parser/enum.Msg.html\" title=\"enum generate_message::parser::Msg\">Msg</a>"],["impl ValueEnum for <a class=\"enum\" href=\"generate_message/parser/enum.Set.html\" title=\"enum generate_message::parser::Set\">Set</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[448]}

@@ -1,0 +1,1 @@
+searchState.loadedDescShard("qrcode_static", 0, "What kind of data goes into QR, to additionally …\nsignatures for transactions and public keys export\nsecret keys export\nReturns the argument unchanged.\nCalls <code>U::from(self)</code>.\nGenerate static qr code from slice <code>&amp;[u8]</code>\nGenerate static qr code from a string.")
