@@ -1,0 +1,1 @@
+searchState.loadedDescShard("qrcode_rtx", 0, "function to take data as <code>Vec&lt;u8&gt;</code>, apply <code>raptorq</code> to get …\nFunction to make appropriately sized qr code, apng or …\nFunction to transform input <code>Vec&lt;u8&gt;</code> into fountain qr-code")

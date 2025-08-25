@@ -1,0 +1,1 @@
+searchState.loadedDescShard("printing_balance", 0, "Input <code>balance</code> has to be a printed number. Likely <code>u128</code> or …\nReturns the argument unchanged.\nCalls <code>U::from(self)</code>.")
